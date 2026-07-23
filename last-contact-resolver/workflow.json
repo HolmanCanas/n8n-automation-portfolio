@@ -1,0 +1,2174 @@
+{
+  "name": "Multi-Office Last-Contact Resolver (Portfolio Demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_RIVERSIDE_TRACKING_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_RIVERSIDE_TRACKING_SHEET_ID/edit#gid=0"
+        },
+        "clear": "specificRows",
+        "startIndex": 2,
+        "rowsToDelete": 2000
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1536,
+        5088
+      ],
+      "id": "ff520e1e-02c8-4d29-9caa-e4774b805a60",
+      "name": "Clear sheet1",
+      "retryOnFail": true,
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "smartListId",
+              "value": "4313"
+            },
+            {
+              "name": "fields",
+              "value": "allFields"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body._metadata.nextLink }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body._metadata.nextLink }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1760,
+        5088
+      ],
+      "id": "dc6faff9-aad7-4352-80d1-b7053a079fa4",
+      "name": "HTTP Riverside",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26f8cfd3-a7a6-4677-8acc-7d4bb043fbfe",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "a15bdc4b-f6b3-4bef-9a0d-56a6fff74e54",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "d3efce02-6867-46f7-ada2-8e967f9cd0bf",
+              "name": "Agent",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "d1e629dc-8b67-465f-abc9-1b3764aaa887",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "6447ebab-c600-42ab-bf14-47e93ec17f4d",
+              "name": "Last Communication",
+              "value": "={{ $json.finalLastCommunicationLabel }}",
+              "type": "string"
+            },
+            {
+              "id": "84274022-51f7-4da3-928f-a503a5995d75",
+              "name": "Link",
+              "value": "=https://yourcompany.followupboss.com/2/people/view/{{ $json.people.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bbe7d689-6118-4510-a93a-951e678c230b",
+              "name": "Lead Source",
+              "value": "={{ $json.people.source }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3552,
+        5088
+      ],
+      "id": "ae456e45-9b1a-46f7-bf21-c25cb642d779",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        5088
+      ],
+      "id": "64de0b4e-fd31-4568-bdcb-8126a09833e2",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_RIVERSIDE_TRACKING_SHEET_ID/edit?gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_RIVERSIDE_TRACKING_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.ID }}",
+            "Name": "={{ $json.Name }}",
+            "Stage": "={{ $json.Stage }}",
+            "Last Communication": "={{ $json[\"Last Communication\"] }}",
+            "Link": "={{ $json.Link }}",
+            "Lead Source": "={{ $json[\"Lead Source\"] }}",
+            "Agent": "={{ $json.Agent }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Agent",
+              "displayName": "Agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Communication",
+              "displayName": "Last Communication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Source",
+              "displayName": "Lead Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3776,
+        5088
+      ],
+      "id": "23127c3f-db57-4ee9-8611-18f9ee778d6e",
+      "name": "Append or update row in sheet",
+      "retryOnFail": true,
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26f8cfd3-a7a6-4677-8acc-7d4bb043fbfe",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "a15bdc4b-f6b3-4bef-9a0d-56a6fff74e54",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "d3efce02-6867-46f7-ada2-8e967f9cd0bf",
+              "name": "Agent",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "d1e629dc-8b67-465f-abc9-1b3764aaa887",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "6447ebab-c600-42ab-bf14-47e93ec17f4d",
+              "name": "Last Communication",
+              "value": "={{ $json.finalLastCommunicationLabel }}",
+              "type": "string"
+            },
+            {
+              "id": "84274022-51f7-4da3-928f-a503a5995d75",
+              "name": "Link",
+              "value": "=https://yourcompany.followupboss.com/2/people/view/{{ $json.people.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bbe7d689-6118-4510-a93a-951e678c230b",
+              "name": "Lead Source",
+              "value": "={{ $json.people.source }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4256,
+        6944
+      ],
+      "id": "b6e9577d-0d0b-471f-b859-fe27c009ec4a",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2912,
+        6944
+      ],
+      "id": "203fb837-6ad2-457f-b1f6-a80ce9492c44",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_ORANGE_TRACKING_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_ORANGE_TRACKING_SHEET_ID/edit#gid=0"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1552,
+        6768
+      ],
+      "id": "b97eb17a-f33a-4b25-aef5-84ef82bbe5ff",
+      "name": "Clear sheet2",
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2000,
+        6768
+      ],
+      "id": "b8e95700-b0ee-47b9-8e5a-c5ef6114dc30",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const total = 21858; // total actualizado\nconst limit = 100;\nconst batches = [];\n\nfor (let offset = 0; offset < total; offset += limit) {\n  batches.push({ json: { offset: offset, limit: limit } });\n}\n\nreturn batches;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        6768
+      ],
+      "id": "ad051510-3091-43db-b250-812fee8d5c34",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4464,
+        6944
+      ],
+      "id": "eb50a065-4c68-43d5-8537-29bb4b0edb2b",
+      "name": "Wait",
+      "webhookId": "5b3cb70c-7ca5-4d32-ad0b-37039db1bcec"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_ORANGE_TRACKING_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_ORANGE_TRACKING_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.ID }}",
+            "Name": "={{ $json.Name }}",
+            "Stage": "={{ $json.Stage }}",
+            "Last Communication": "={{ $json[\"Last Communication\"] }}",
+            "Link": "={{ $json.Link }}",
+            "Lead Source": "={{ $json[\"Lead Source\"] }}",
+            "Agent": "={{ $json.Agent }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Agent",
+              "displayName": "Agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Communication",
+              "displayName": "Last Communication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Source",
+              "displayName": "Lead Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4672,
+        6944
+      ],
+      "id": "232b698e-ff8c-4539-b243-4ca011c7bac1",
+      "name": "Append or update row in sheet OC",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "={{ $json.limit }}"
+            },
+            {
+              "name": "smartListId",
+              "value": "4315"
+            },
+            {
+              "name": "fields",
+              "value": "allFields"
+            },
+            {
+              "name": "offset",
+              "value": "={{ $json.offset }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2224,
+        6848
+      ],
+      "id": "4498606b-095f-4587-99a2-b33a46f3b581",
+      "name": "HTTP Orange",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        6032
+      ],
+      "id": "f2ac82e3-fd9e-44fa-83b3-b2c9c0ee1fd1",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const total = 21858; // total actualizado\nconst limit = 100;\nconst batches = [];\n\nfor (let offset = 0; offset < total; offset += limit) {\n  batches.push({ json: { offset: offset, limit: limit } });\n}\n\nreturn batches;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        5808
+      ],
+      "id": "adb67900-9c69-4c41-ada7-a765a0b4354b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1984,
+        5808
+      ],
+      "id": "ae0deaa0-80d7-4a46-a929-ce40194854f1",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        672,
+        6896
+      ],
+      "id": "cbbf7d66-c73a-4751-94af-a649bad70fa1",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26f8cfd3-a7a6-4677-8acc-7d4bb043fbfe",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "a15bdc4b-f6b3-4bef-9a0d-56a6fff74e54",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "d3efce02-6867-46f7-ada2-8e967f9cd0bf",
+              "name": "Agent",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "d1e629dc-8b67-465f-abc9-1b3764aaa887",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "6447ebab-c600-42ab-bf14-47e93ec17f4d",
+              "name": "Last Communication",
+              "value": "={{ $json.finalLastCommunicationLabel }}",
+              "type": "string"
+            },
+            {
+              "id": "84274022-51f7-4da3-928f-a503a5995d75",
+              "name": "Link",
+              "value": "=https://yourcompany.followupboss.com/2/people/view/{{ $json.people.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bbe7d689-6118-4510-a93a-951e678c230b",
+              "name": "Lead Source",
+              "value": "={{ $json.people.source }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4336,
+        6096
+      ],
+      "id": "dc4dcc11-946f-4220-9682-7fd361663728",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4544,
+        6096
+      ],
+      "id": "8fe201f5-2aaf-461b-94bc-43a608de75a7",
+      "name": "Wait2",
+      "webhookId": "5b3cb70c-7ca5-4d32-ad0b-37039db1bcec"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.ID }}",
+            "Name": "={{ $json.Name }}",
+            "Stage": "={{ $json.Stage }}",
+            "Last Communication": "={{ $json[\"Last Communication\"] }}",
+            "Link": "={{ $json.Link }}",
+            "Lead Source": "={{ $json[\"Lead Source\"] }}",
+            "Agent": "={{ $json.Agent }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Agent",
+              "displayName": "Agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Communication",
+              "displayName": "Last Communication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Source",
+              "displayName": "Lead Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4752,
+        6096
+      ],
+      "id": "c74d581a-d230-47fe-b7be-fb9c041fe077",
+      "name": "Append or update row in sheet LA",
+      "retryOnFail": true,
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2992,
+        6096
+      ],
+      "id": "de1c3ba7-1e44-46dd-ab9e-0c15398eed4c",
+      "name": "Split Out3"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "={{ $json.limit }}"
+            },
+            {
+              "name": "smartListId",
+              "value": "4314"
+            },
+            {
+              "name": "fields",
+              "value": "allFields"
+            },
+            {
+              "name": "offset",
+              "value": "={{ $json.offset }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2240,
+        5968
+      ],
+      "id": "1cf9a888-d61e-4aa6-a071-31f567191671",
+      "name": "HTTP Los Angeles",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ALL AGENTS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_LEADS_SHEET_ID/edit#gid=0"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1536,
+        5808
+      ],
+      "id": "a043ef21-8138-4b62-862c-befbcc2b3ce3",
+      "name": "Clear sheet",
+      "retryOnFail": true,
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2208,
+        5088
+      ],
+      "id": "1b91148c-02b0-45f5-8e47-3b5829aa0f99",
+      "name": "Wait4",
+      "webhookId": "fa0a978a-9b28-47d9-9dee-8158c3153bb3"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"run_id\": \"{{$execution.id}}\",\n  \"branch\": \"riverside\",\n  \"office\": \"Riverside\",\n  \"db_status\": \"READY_FOR_SECONDARY\",\n  \"triggered_by\": \"main_workflow\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4000,
+        5088
+      ],
+      "id": "ac7fc2e1-09bd-4b66-bb51-86d5dbaf2cd3",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"run_id\": \"{{$execution.id}}\",\n  \"branch\": \"Los Angeles\",\n  \"office\": \"Los Angeles\",\n  \"db_status\": \"READY_FOR_SECONDARY\",\n  \"triggered_by\": \"main_workflow\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2992,
+        6368
+      ],
+      "id": "3d1dc6dc-2e6e-42b6-a702-ea07d56558a7",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b8764a65-ecee-4b5d-a5e3-1d58b21595f5",
+              "leftValue": "={{ $json.people || [] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2528,
+        5968
+      ],
+      "id": "9bd4003e-4ff1-4a47-940a-8ea80ef14de5",
+      "name": "LA Has people"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"run_id\": \"{{$execution.id}}\",\n  \"branch\": \"Orange County\",\n  \"office\": \"Orange County\",\n  \"db_status\": \"READY_FOR_SECONDARY\",\n  \"triggered_by\": \"main_workflow\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2912,
+        7200
+      ],
+      "id": "83762168-d4b9-40ee-9658-45ae43be4d3c",
+      "name": "Edit Fields5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b8764a65-ecee-4b5d-a5e3-1d58b21595f5",
+              "leftValue": "={{ $json.people || [] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2448,
+        6848
+      ],
+      "id": "c94593a6-2b8a-49dc-aa5f-70c28e44a98a",
+      "name": "OC Has people"
+    },
+    {
+      "parameters": {
+        "amount": 45
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        5808
+      ],
+      "id": "34d35c93-d466-4c7c-9ad8-8bd5914c8d4f",
+      "name": "Wait6",
+      "webhookId": "b3a4eb79-7086-4365-9e25-00276a50390b"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        6240
+      ],
+      "id": "9429e397-8320-4d29-a51a-51c00eb5be52",
+      "name": "Wait7",
+      "webhookId": "254d55ec-5fb5-46ef-8bf7-baf9fa85df0b"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2432,
+        5088
+      ],
+      "id": "12b5c650-92fa-449a-a77d-f5b2f5107d8f",
+      "name": "Get Riverside Calls",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Wait4').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction getCallDate(call) {\n  return call.created || call.createdAt || call.startedAt || call.started_at || call.date || call.updated || null;\n}\n\nfunction getDurationSeconds(call) {\n  const candidates = [\n    call.duration,\n    call.durationSeconds,\n    call.duration_seconds,\n    call.callDuration,\n    call.call_duration,\n    call.length,\n    call.talkTime,\n    call.talk_time,\n  ];\n\n  for (const value of candidates) {\n    const num = Number(value);\n    if (Number.isFinite(num) && num > 0) return num;\n  }\n\n  return 0;\n}\n\nfunction isEffectiveCall(call) {\n  const outcome = norm(call.outcome || call.result || call.status || call.disposition || call.callOutcome);\n  const note = norm(call.note || call.description || '');\n  const combined = `${outcome} ${note}`;\n  const duration = getDurationSeconds(call);\n\n  // Ajustable: palabras que NO deben contar como llamada efectiva.\n  const negativeKeywords = [\n    'no answer', 'no_answer', 'unanswered', 'missed', 'voicemail', 'voice mail',\n    'left voicemail', 'left vm', 'busy', 'failed', 'canceled', 'cancelled',\n    'wrong number', 'invalid', 'not connected', 'declined', 'did not answer'\n  ];\n\n  // Ajustable: palabras que sí indican conversación/llamada contestada.\n  const positiveKeywords = [\n    'answered', 'connected', 'spoke', 'conversation', 'completed', 'live answer',\n    'contacted', 'talked', 'reached'\n  ];\n\n  if (negativeKeywords.some(keyword => combined.includes(keyword))) return false;\n  if (positiveKeywords.some(keyword => combined.includes(keyword))) return true;\n\n  // Fallback conservador: si tiene duración y no fue marcada como fallida/no contestada, cuenta como efectiva.\n  return duration > 0;\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n  const statusCode = raw.statusCode || raw.status || body.statusCode || body.status || null;\n  const apiError = Boolean((statusCode && Number(statusCode) >= 400) || raw.error || body.error);\n\n  const calls = asArray(body.calls || raw.calls || body.recent_calls || raw.recent_calls)\n    .filter(call => call && typeof call === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getCallDate(a))?.getTime() || 0;\n      const db = parseDate(getCallDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestEffectiveCall = calls.find(isEffectiveCall) || null;\n  const latestEffectiveCallDate = latestEffectiveCall ? toIsoOrBlank(getCallDate(latestEffectiveCall)) : '';\n\n  return {\n    json: {\n      ...originalLead,\n      lastEffectiveCallDate: latestEffectiveCallDate,\n      lastEffectiveCallDays: latestEffectiveCallDate ? daysSince(latestEffectiveCallDate) : '',\n      lastEffectiveCallId: latestEffectiveCall?.id || '',\n      callsChecked: calls.length,\n      callsApiError: apiError,\n      callsApiStatusCode: statusCode || '',\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        5088
+      ],
+      "id": "d4d1cc75-0c8c-4dbb-b42e-d6b11cbc821a",
+      "name": "Build Riverside Effective Call"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/textMessages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2880,
+        5088
+      ],
+      "id": "cfcea70f-0d01-48da-9d6e-bbbfab45f35d",
+      "name": "Get Riverside Texts",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Build Riverside Effective Call').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\n/**\n * Fecha del texto.\n * Para mensajes de texto, se prioriza la fecha de envío si existe.\n * Si no existe, se usa created/createdAt como respaldo.\n */\nfunction getTextDate(text) {\n  return (\n    text.sentAt ||\n    text.sent ||\n    text.dateSent ||\n    text.created ||\n    text.createdAt ||\n    text.dateCreated ||\n    text.updated ||\n    text.updatedAt ||\n    null\n  );\n}\n\nfunction isIncoming(value) {\n  if (value === true || value === 1 || value === '1') return true;\n  if (value === false || value === 0 || value === '0') return false;\n\n  if (typeof value === 'string') {\n    const clean = value.trim().toLowerCase();\n\n    if (['true', 'yes', 'incoming', 'inbound', 'received'].includes(clean)) {\n      return true;\n    }\n\n    if (['false', 'no', 'outgoing', 'outbound', 'sent'].includes(clean)) {\n      return false;\n    }\n  }\n\n  return Boolean(value);\n}\n\nfunction isOutboundTextToLead(text) {\n  // En FUB normalmente isIncoming=false identifica mensajes salientes.\n  if (\n    Object.prototype.hasOwnProperty.call(text, 'isIncoming') ||\n    Object.prototype.hasOwnProperty.call(text, 'is_incoming')\n  ) {\n    return !isIncoming(text.isIncoming ?? text.is_incoming);\n  }\n\n  const direction = norm(text.direction || text.type || text.messageDirection || '');\n\n  if (['outbound', 'outgoing', 'sent'].includes(direction)) return true;\n  if (['inbound', 'incoming', 'received'].includes(direction)) return false;\n\n  // Si no hay dirección, no lo contamos como texto enviado para evitar falsos positivos.\n  return false;\n}\n\nfunction detectStatusCode(raw, body, errorMessage) {\n  const directStatus =\n    raw.statusCode ||\n    raw.status ||\n    body.statusCode ||\n    body.status ||\n    null;\n\n  if (directStatus) return directStatus;\n\n  // Fallback útil para errores de rate limit cuando n8n solo entrega errorMessage.\n  if (norm(errorMessage).includes('rate limit')) return 429;\n\n  return '';\n}\n\nfunction getErrorMessage(raw, body) {\n  return (\n    raw.errorMessage ||\n    body.errorMessage ||\n    raw.message ||\n    body.message ||\n    raw.error?.message ||\n    body.error?.message ||\n    ''\n  );\n}\n\nfunction getFallbackLastSentText(originalLead) {\n  const people = originalLead.people || {};\n\n  // Fuente más confiable cuando viene desde el objeto people de FUB.\n  const lastSentTextDate =\n    people.lastSentText ||\n    originalLead.lastSentText ||\n    '';\n\n  const lastSentTextId =\n    people.lastSentTextId ||\n    originalLead.lastSentTextId ||\n    '';\n\n  if (lastSentTextDate) {\n    return {\n      date: lastSentTextDate,\n      id: lastSentTextId,\n      source: 'people.lastSentText',\n    };\n  }\n\n  // Fallback adicional: lastCommunication solo si explícitamente es texto saliente.\n  const lastCommunication = people.lastCommunication || originalLead.lastCommunication || null;\n\n  if (\n    lastCommunication &&\n    typeof lastCommunication === 'object' &&\n    norm(lastCommunication.type).includes('text') &&\n    ['outgoing', 'outbound', 'sent'].includes(norm(lastCommunication.direction)) &&\n    lastCommunication.date\n  ) {\n    return {\n      date: lastCommunication.date,\n      id: lastCommunication.id || '',\n      source: 'people.lastCommunication',\n    };\n  }\n\n  return {\n    date: '',\n    id: '',\n    source: '',\n  };\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n\n  const errorMessage = getErrorMessage(raw, body);\n  const statusCode = detectStatusCode(raw, body, errorMessage);\n\n  const apiError = Boolean(\n    (statusCode && Number(statusCode) >= 400) ||\n    raw.error ||\n    body.error ||\n    errorMessage\n  );\n\n  const texts = asArray(\n    body.textmessages ||\n    body.textMessages ||\n    body.texts ||\n    body.messages ||\n    raw.textmessages ||\n    raw.textMessages ||\n    raw.texts ||\n    raw.messages\n  )\n    .filter(text => text && typeof text === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getTextDate(a))?.getTime() || 0;\n      const db = parseDate(getTextDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestOutboundText = texts.find(isOutboundTextToLead) || null;\n  const latestOutboundTextDate = latestOutboundText\n    ? toIsoOrBlank(getTextDate(latestOutboundText))\n    : '';\n\n  const fallbackText = getFallbackLastSentText(originalLead);\n\n  /**\n   * Resultado final:\n   * 1. Si el endpoint de textos trae un texto saliente, usa ese dato.\n   * 2. Si el endpoint falla, viene vacío o no trae textos salientes, usa people.lastSentText.\n   */\n  const finalOutboundTextDate = latestOutboundTextDate || fallbackText.date || '';\n  const finalOutboundTextId = latestOutboundText?.id || fallbackText.id || '';\n\n  const textDateSource = latestOutboundTextDate\n    ? 'texts_api'\n    : fallbackText.source || '';\n\n  return {\n    json: {\n      ...originalLead,\n\n      lastOutboundTextDate: finalOutboundTextDate\n        ? toIsoOrBlank(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextDays: finalOutboundTextDate\n        ? daysSince(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextId: finalOutboundTextId,\n\n      textsChecked: texts.length,\n\n      textsApiTotal:\n        body._metadata?.total ??\n        raw._metadata?.total ??\n        texts.length,\n\n      textsApiHasNextPage: Boolean(\n        body._metadata?.next ||\n        body._metadata?.nextLink ||\n        raw._metadata?.next ||\n        raw._metadata?.nextLink\n      ),\n\n      textsApiError: apiError,\n      textsApiStatusCode: statusCode || '',\n      textsApiErrorMessage: errorMessage || '',\n\n      textDateSource,\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3104,
+        5088
+      ],
+      "id": "2201d0a3-d1ae-41d1-9257-7e9b275c2dc7",
+      "name": "Build Riverside Text Sent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction parseDate(value) {\n  if (!value) return null;\n\n  if (value instanceof Date && !Number.isNaN(value.getTime())) {\n    return value;\n  }\n\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction ageLabel(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return '0 days, 0 hours';\n\n  const days = Math.floor(diff / MS_PER_DAY);\n  const hours = Math.floor((diff % MS_PER_DAY) / (1000 * 60 * 60));\n\n  return `${days} days, ${hours} hours`;\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction isValidDate(value) {\n  return Boolean(parseDate(value));\n}\n\nfunction getPeople(item) {\n  return item.people || {};\n}\n\nfunction getLastCommunicationRaw(people, item) {\n  return people.lastCommunication || item.lastCommunication || null;\n}\n\nfunction getLastCommunicationDate(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (!lastCommunication) return '';\n\n  if (typeof lastCommunication === 'string') {\n    return lastCommunication;\n  }\n\n  if (typeof lastCommunication === 'object') {\n    return (\n      lastCommunication.date ||\n      lastCommunication.created ||\n      lastCommunication.createdAt ||\n      lastCommunication.sentAt ||\n      lastCommunication.sent ||\n      lastCommunication.updated ||\n      lastCommunication.updatedAt ||\n      ''\n    );\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationType(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.type || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationDirection(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.direction || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationId(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.id || '';\n  }\n\n  return '';\n}\n\nfunction pickMostRecent(candidates) {\n  const validCandidates = candidates\n    .filter(candidate => candidate && isValidDate(candidate.date))\n    .sort((a, b) => {\n      const da = parseDate(a.date)?.getTime() || 0;\n      const db = parseDate(b.date)?.getTime() || 0;\n      return db - da;\n    });\n\n  return validCandidates[0] || null;\n}\n\nfunction buildCallCandidate(people, item) {\n  // Prioridad 1: llamada efectiva calculada desde endpoint /calls.\n  if (isValidDate(item.lastEffectiveCallDate)) {\n    return {\n      type: 'CALL',\n      source: 'calls_api_effective_call',\n      confidence: 'HIGH',\n      date: item.lastEffectiveCallDate,\n      id: item.lastEffectiveCallId || '',\n      reason: 'Se tomó la última llamada efectiva detectada desde el endpoint de llamadas.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Call del perfil FUB.\n  if (isValidDate(people.lastCall || item.lastCall)) {\n    return {\n      type: 'CALL_PROFILE_FALLBACK',\n      source: 'people.lastCall',\n      confidence: 'MEDIUM',\n      date: people.lastCall || item.lastCall || '',\n      id: people.lastCallId || item.lastCallId || '',\n      reason: 'No hubo llamada efectiva desde API; se tomó Last Call del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildTextCandidate(people, item) {\n  // Prioridad 1: texto calculado desde endpoint /textMessages o fallback ya procesado.\n  if (isValidDate(item.lastOutboundTextDate)) {\n    return {\n      type: 'TEXT',\n      source: item.textDateSource || 'texts_api_or_people_lastSentText',\n      confidence: item.textDateSource === 'texts_api' ? 'HIGH' : 'MEDIUM',\n      date: item.lastOutboundTextDate,\n      id: item.lastOutboundTextId || '',\n      reason: item.textDateSource === 'texts_api'\n        ? 'Se tomó el último texto saliente detectado desde el endpoint de textos.'\n        : 'Se tomó el último texto saliente desde respaldo del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Text / Last Sent Text del perfil FUB.\n  if (isValidDate(people.lastSentText || item.lastSentText || people.lastText || item.lastText)) {\n    return {\n      type: 'TEXT_PROFILE_FALLBACK',\n      source: 'people.lastSentText',\n      confidence: 'MEDIUM',\n      date: people.lastSentText || item.lastSentText || people.lastText || item.lastText || '',\n      id: people.lastSentTextId || item.lastSentTextId || people.lastTextId || item.lastTextId || '',\n      reason: 'No hubo texto válido desde API; se tomó Last Text del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildCommunicationCandidate(people, item) {\n  const communicationDate = getLastCommunicationDate(people, item);\n\n  if (!isValidDate(communicationDate)) return null;\n\n  return {\n    type: 'COMMUNICATION_FALLBACK',\n    source: 'people.lastCommunication',\n    confidence: 'LOW',\n    date: communicationDate,\n    id: getLastCommunicationId(people, item),\n    reason: 'No hubo Last Call ni Last Text disponible; se tomó Last Communication como criterio válido.',\n    priorityGroup: 'COMMUNICATION_ONLY',\n    communicationType: getLastCommunicationType(people, item),\n    communicationDirection: getLastCommunicationDirection(people, item),\n  };\n}\n\nfunction resolveWinner(item) {\n  const people = getPeople(item);\n\n  const callCandidate = buildCallCandidate(people, item);\n  const textCandidate = buildTextCandidate(people, item);\n  const communicationCandidate = buildCommunicationCandidate(people, item);\n\n  const callOrTextCandidates = [callCandidate, textCandidate].filter(Boolean);\n  const allCandidates = [callCandidate, textCandidate, communicationCandidate].filter(Boolean);\n\n  /**\n   * Salvaguarda 1:\n   * Si solo existe un dato entre Last Call, Last Text o Last Communication,\n   * se toma automáticamente ese único dato.\n   */\n  if (allCandidates.length === 1) {\n    return allCandidates[0];\n  }\n\n  /**\n   * Regla principal:\n   * Si existe Last Call y/o Last Text, se elige el más reciente entre esos dos.\n   * Last Communication NO compite contra Call/Text cuando Call/Text existen.\n   */\n  if (callOrTextCandidates.length > 0) {\n    return pickMostRecent(callOrTextCandidates);\n  }\n\n  /**\n   * Salvaguarda 2:\n   * Si no hay Last Call ni Last Text, pero sí Last Communication,\n   * Last Communication se usa como criterio válido.\n   */\n  if (communicationCandidate) {\n    return communicationCandidate;\n  }\n\n  return null;\n}\n\nfunction buildFinalResult(item) {\n  const people = getPeople(item);\n  const winner = resolveWinner(item);\n\n  if (!winner) {\n    return {\n      finalLastCommunicationDate: '',\n      finalLastCommunicationDays: '',\n      finalLastCommunicationLabel: '',\n      finalLastCommunicationType: '',\n      finalLastCommunicationSource: '',\n      finalLastCommunicationConfidence: 'NONE',\n      finalLastCommunicationReason: 'No se encontró fecha válida en Last Call, Last Text ni Last Communication.',\n      finalLastCommunicationId: '',\n      finalLastCommunicationPriorityGroup: '',\n      finalLastCommunicationRawType: '',\n      finalLastCommunicationRawDirection: '',\n      finalCommunicationDecisionRule: 'NO_VALID_DATA',\n    };\n  }\n\n  const finalDateIso = toIsoOrBlank(winner.date);\n\n  return {\n    finalLastCommunicationDate: finalDateIso,\n    finalLastCommunicationDays: daysSince(finalDateIso),\n    finalLastCommunicationLabel: ageLabel(finalDateIso),\n    finalLastCommunicationType: winner.type,\n    finalLastCommunicationSource: winner.source,\n    finalLastCommunicationConfidence: winner.confidence,\n    finalLastCommunicationReason: winner.reason,\n    finalLastCommunicationId: winner.id || '',\n    finalLastCommunicationPriorityGroup: winner.priorityGroup || '',\n    finalLastCommunicationRawType: winner.communicationType || '',\n    finalLastCommunicationRawDirection: winner.communicationDirection || '',\n    finalCommunicationDecisionRule:\n      winner.priorityGroup === 'CALL_OR_TEXT'\n        ? 'CALL_OR_TEXT_WINS_BY_DATE'\n        : 'COMMUNICATION_USED_BECAUSE_CALL_AND_TEXT_EMPTY',\n  };\n}\n\nreturn items.map((item) => {\n  const json = item.json || {};\n  const people = json.people || {};\n  const resolved = buildFinalResult(json);\n\n  return {\n    json: {\n      ...json,\n\n      ...resolved,\n\n      // Diagnóstico de candidatos usados para validar en pruebas.\n      candidateLastEffectiveCallDate: json.lastEffectiveCallDate || '',\n      candidateLastEffectiveCallId: json.lastEffectiveCallId || '',\n\n      candidatePeopleLastCall: people.lastCall || json.lastCall || '',\n      candidatePeopleLastCallId: people.lastCallId || json.lastCallId || '',\n\n      candidateLastOutboundTextDate: json.lastOutboundTextDate || '',\n      candidateLastOutboundTextId: json.lastOutboundTextId || '',\n\n      candidatePeopleLastSentText:\n        people.lastSentText ||\n        json.lastSentText ||\n        people.lastText ||\n        json.lastText ||\n        '',\n\n      candidatePeopleLastSentTextId:\n        people.lastSentTextId ||\n        json.lastSentTextId ||\n        people.lastTextId ||\n        json.lastTextId ||\n        '',\n\n      candidatePeopleLastCommunication:\n        getLastCommunicationDate(people, json),\n\n      candidatePeopleLastCommunicationType:\n        getLastCommunicationType(people, json),\n\n      candidatePeopleLastCommunicationDirection:\n        getLastCommunicationDirection(people, json),\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3328,
+        5088
+      ],
+      "id": "4e20058b-3c81-411b-ab6c-475b15e89b84",
+      "name": "Resolve Last Effective Communication"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3216,
+        6096
+      ],
+      "id": "c01f366b-f003-47c0-b1fb-2c7ad33a7d6c",
+      "name": "Get Los Angeles Calls",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Split Out3').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction getCallDate(call) {\n  return call.created || call.createdAt || call.startedAt || call.started_at || call.date || call.updated || null;\n}\n\nfunction getDurationSeconds(call) {\n  const candidates = [\n    call.duration,\n    call.durationSeconds,\n    call.duration_seconds,\n    call.callDuration,\n    call.call_duration,\n    call.length,\n    call.talkTime,\n    call.talk_time,\n  ];\n\n  for (const value of candidates) {\n    const num = Number(value);\n    if (Number.isFinite(num) && num > 0) return num;\n  }\n\n  return 0;\n}\n\nfunction isEffectiveCall(call) {\n  const outcome = norm(call.outcome || call.result || call.status || call.disposition || call.callOutcome);\n  const note = norm(call.note || call.description || '');\n  const combined = `${outcome} ${note}`;\n  const duration = getDurationSeconds(call);\n\n  // Ajustable: palabras que NO deben contar como llamada efectiva.\n  const negativeKeywords = [\n    'no answer', 'no_answer', 'unanswered', 'missed', 'voicemail', 'voice mail',\n    'left voicemail', 'left vm', 'busy', 'failed', 'canceled', 'cancelled',\n    'wrong number', 'invalid', 'not connected', 'declined', 'did not answer'\n  ];\n\n  // Ajustable: palabras que sí indican conversación/llamada contestada.\n  const positiveKeywords = [\n    'answered', 'connected', 'spoke', 'conversation', 'completed', 'live answer',\n    'contacted', 'talked', 'reached'\n  ];\n\n  if (negativeKeywords.some(keyword => combined.includes(keyword))) return false;\n  if (positiveKeywords.some(keyword => combined.includes(keyword))) return true;\n\n  // Fallback conservador: si tiene duración y no fue marcada como fallida/no contestada, cuenta como efectiva.\n  return duration > 0;\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n  const statusCode = raw.statusCode || raw.status || body.statusCode || body.status || null;\n  const apiError = Boolean((statusCode && Number(statusCode) >= 400) || raw.error || body.error);\n\n  const calls = asArray(body.calls || raw.calls || body.recent_calls || raw.recent_calls)\n    .filter(call => call && typeof call === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getCallDate(a))?.getTime() || 0;\n      const db = parseDate(getCallDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestEffectiveCall = calls.find(isEffectiveCall) || null;\n  const latestEffectiveCallDate = latestEffectiveCall ? toIsoOrBlank(getCallDate(latestEffectiveCall)) : '';\n\n  return {\n    json: {\n      ...originalLead,\n      lastEffectiveCallDate: latestEffectiveCallDate,\n      lastEffectiveCallDays: latestEffectiveCallDate ? daysSince(latestEffectiveCallDate) : '',\n      lastEffectiveCallId: latestEffectiveCall?.id || '',\n      callsChecked: calls.length,\n      callsApiError: apiError,\n      callsApiStatusCode: statusCode || '',\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3440,
+        6096
+      ],
+      "id": "8d5b8803-22db-4e75-a9f8-8b28e28e0366",
+      "name": "Build Los Angeles Effective Call"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/textMessages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3664,
+        6096
+      ],
+      "id": "a7f192ca-e8e7-418f-8179-9b5bf0f53691",
+      "name": "Get Los Angeles Texts",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Build Los Angeles Effective Call').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\n/**\n * Fecha del texto.\n * Para mensajes de texto, se prioriza la fecha de envío si existe.\n * Si no existe, se usa created/createdAt como respaldo.\n */\nfunction getTextDate(text) {\n  return (\n    text.sentAt ||\n    text.sent ||\n    text.dateSent ||\n    text.created ||\n    text.createdAt ||\n    text.dateCreated ||\n    text.updated ||\n    text.updatedAt ||\n    null\n  );\n}\n\nfunction isIncoming(value) {\n  if (value === true || value === 1 || value === '1') return true;\n  if (value === false || value === 0 || value === '0') return false;\n\n  if (typeof value === 'string') {\n    const clean = value.trim().toLowerCase();\n\n    if (['true', 'yes', 'incoming', 'inbound', 'received'].includes(clean)) {\n      return true;\n    }\n\n    if (['false', 'no', 'outgoing', 'outbound', 'sent'].includes(clean)) {\n      return false;\n    }\n  }\n\n  return Boolean(value);\n}\n\nfunction isOutboundTextToLead(text) {\n  // En FUB normalmente isIncoming=false identifica mensajes salientes.\n  if (\n    Object.prototype.hasOwnProperty.call(text, 'isIncoming') ||\n    Object.prototype.hasOwnProperty.call(text, 'is_incoming')\n  ) {\n    return !isIncoming(text.isIncoming ?? text.is_incoming);\n  }\n\n  const direction = norm(text.direction || text.type || text.messageDirection || '');\n\n  if (['outbound', 'outgoing', 'sent'].includes(direction)) return true;\n  if (['inbound', 'incoming', 'received'].includes(direction)) return false;\n\n  // Si no hay dirección, no lo contamos como texto enviado para evitar falsos positivos.\n  return false;\n}\n\nfunction detectStatusCode(raw, body, errorMessage) {\n  const directStatus =\n    raw.statusCode ||\n    raw.status ||\n    body.statusCode ||\n    body.status ||\n    null;\n\n  if (directStatus) return directStatus;\n\n  // Fallback útil para errores de rate limit cuando n8n solo entrega errorMessage.\n  if (norm(errorMessage).includes('rate limit')) return 429;\n\n  return '';\n}\n\nfunction getErrorMessage(raw, body) {\n  return (\n    raw.errorMessage ||\n    body.errorMessage ||\n    raw.message ||\n    body.message ||\n    raw.error?.message ||\n    body.error?.message ||\n    ''\n  );\n}\n\nfunction getFallbackLastSentText(originalLead) {\n  const people = originalLead.people || {};\n\n  // Fuente más confiable cuando viene desde el objeto people de FUB.\n  const lastSentTextDate =\n    people.lastSentText ||\n    originalLead.lastSentText ||\n    '';\n\n  const lastSentTextId =\n    people.lastSentTextId ||\n    originalLead.lastSentTextId ||\n    '';\n\n  if (lastSentTextDate) {\n    return {\n      date: lastSentTextDate,\n      id: lastSentTextId,\n      source: 'people.lastSentText',\n    };\n  }\n\n  // Fallback adicional: lastCommunication solo si explícitamente es texto saliente.\n  const lastCommunication = people.lastCommunication || originalLead.lastCommunication || null;\n\n  if (\n    lastCommunication &&\n    typeof lastCommunication === 'object' &&\n    norm(lastCommunication.type).includes('text') &&\n    ['outgoing', 'outbound', 'sent'].includes(norm(lastCommunication.direction)) &&\n    lastCommunication.date\n  ) {\n    return {\n      date: lastCommunication.date,\n      id: lastCommunication.id || '',\n      source: 'people.lastCommunication',\n    };\n  }\n\n  return {\n    date: '',\n    id: '',\n    source: '',\n  };\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n\n  const errorMessage = getErrorMessage(raw, body);\n  const statusCode = detectStatusCode(raw, body, errorMessage);\n\n  const apiError = Boolean(\n    (statusCode && Number(statusCode) >= 400) ||\n    raw.error ||\n    body.error ||\n    errorMessage\n  );\n\n  const texts = asArray(\n    body.textmessages ||\n    body.textMessages ||\n    body.texts ||\n    body.messages ||\n    raw.textmessages ||\n    raw.textMessages ||\n    raw.texts ||\n    raw.messages\n  )\n    .filter(text => text && typeof text === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getTextDate(a))?.getTime() || 0;\n      const db = parseDate(getTextDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestOutboundText = texts.find(isOutboundTextToLead) || null;\n  const latestOutboundTextDate = latestOutboundText\n    ? toIsoOrBlank(getTextDate(latestOutboundText))\n    : '';\n\n  const fallbackText = getFallbackLastSentText(originalLead);\n\n  /**\n   * Resultado final:\n   * 1. Si el endpoint de textos trae un texto saliente, usa ese dato.\n   * 2. Si el endpoint falla, viene vacío o no trae textos salientes, usa people.lastSentText.\n   */\n  const finalOutboundTextDate = latestOutboundTextDate || fallbackText.date || '';\n  const finalOutboundTextId = latestOutboundText?.id || fallbackText.id || '';\n\n  const textDateSource = latestOutboundTextDate\n    ? 'texts_api'\n    : fallbackText.source || '';\n\n  return {\n    json: {\n      ...originalLead,\n\n      lastOutboundTextDate: finalOutboundTextDate\n        ? toIsoOrBlank(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextDays: finalOutboundTextDate\n        ? daysSince(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextId: finalOutboundTextId,\n\n      textsChecked: texts.length,\n\n      textsApiTotal:\n        body._metadata?.total ??\n        raw._metadata?.total ??\n        texts.length,\n\n      textsApiHasNextPage: Boolean(\n        body._metadata?.next ||\n        body._metadata?.nextLink ||\n        raw._metadata?.next ||\n        raw._metadata?.nextLink\n      ),\n\n      textsApiError: apiError,\n      textsApiStatusCode: statusCode || '',\n      textsApiErrorMessage: errorMessage || '',\n\n      textDateSource,\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3888,
+        6096
+      ],
+      "id": "603bcd97-1569-430b-82d8-2b1120fa1746",
+      "name": "Build Los Angeles Text Sent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction parseDate(value) {\n  if (!value) return null;\n\n  if (value instanceof Date && !Number.isNaN(value.getTime())) {\n    return value;\n  }\n\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction ageLabel(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return '0 days, 0 hours';\n\n  const days = Math.floor(diff / MS_PER_DAY);\n  const hours = Math.floor((diff % MS_PER_DAY) / (1000 * 60 * 60));\n\n  return `${days} days, ${hours} hours`;\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction isValidDate(value) {\n  return Boolean(parseDate(value));\n}\n\nfunction getPeople(item) {\n  return item.people || {};\n}\n\nfunction getLastCommunicationRaw(people, item) {\n  return people.lastCommunication || item.lastCommunication || null;\n}\n\nfunction getLastCommunicationDate(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (!lastCommunication) return '';\n\n  if (typeof lastCommunication === 'string') {\n    return lastCommunication;\n  }\n\n  if (typeof lastCommunication === 'object') {\n    return (\n      lastCommunication.date ||\n      lastCommunication.created ||\n      lastCommunication.createdAt ||\n      lastCommunication.sentAt ||\n      lastCommunication.sent ||\n      lastCommunication.updated ||\n      lastCommunication.updatedAt ||\n      ''\n    );\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationType(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.type || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationDirection(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.direction || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationId(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.id || '';\n  }\n\n  return '';\n}\n\nfunction pickMostRecent(candidates) {\n  const validCandidates = candidates\n    .filter(candidate => candidate && isValidDate(candidate.date))\n    .sort((a, b) => {\n      const da = parseDate(a.date)?.getTime() || 0;\n      const db = parseDate(b.date)?.getTime() || 0;\n      return db - da;\n    });\n\n  return validCandidates[0] || null;\n}\n\nfunction buildCallCandidate(people, item) {\n  // Prioridad 1: llamada efectiva calculada desde endpoint /calls.\n  if (isValidDate(item.lastEffectiveCallDate)) {\n    return {\n      type: 'CALL',\n      source: 'calls_api_effective_call',\n      confidence: 'HIGH',\n      date: item.lastEffectiveCallDate,\n      id: item.lastEffectiveCallId || '',\n      reason: 'Se tomó la última llamada efectiva detectada desde el endpoint de llamadas.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Call del perfil FUB.\n  if (isValidDate(people.lastCall || item.lastCall)) {\n    return {\n      type: 'CALL_PROFILE_FALLBACK',\n      source: 'people.lastCall',\n      confidence: 'MEDIUM',\n      date: people.lastCall || item.lastCall || '',\n      id: people.lastCallId || item.lastCallId || '',\n      reason: 'No hubo llamada efectiva desde API; se tomó Last Call del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildTextCandidate(people, item) {\n  // Prioridad 1: texto calculado desde endpoint /textMessages o fallback ya procesado.\n  if (isValidDate(item.lastOutboundTextDate)) {\n    return {\n      type: 'TEXT',\n      source: item.textDateSource || 'texts_api_or_people_lastSentText',\n      confidence: item.textDateSource === 'texts_api' ? 'HIGH' : 'MEDIUM',\n      date: item.lastOutboundTextDate,\n      id: item.lastOutboundTextId || '',\n      reason: item.textDateSource === 'texts_api'\n        ? 'Se tomó el último texto saliente detectado desde el endpoint de textos.'\n        : 'Se tomó el último texto saliente desde respaldo del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Text / Last Sent Text del perfil FUB.\n  if (isValidDate(people.lastSentText || item.lastSentText || people.lastText || item.lastText)) {\n    return {\n      type: 'TEXT_PROFILE_FALLBACK',\n      source: 'people.lastSentText',\n      confidence: 'MEDIUM',\n      date: people.lastSentText || item.lastSentText || people.lastText || item.lastText || '',\n      id: people.lastSentTextId || item.lastSentTextId || people.lastTextId || item.lastTextId || '',\n      reason: 'No hubo texto válido desde API; se tomó Last Text del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildCommunicationCandidate(people, item) {\n  const communicationDate = getLastCommunicationDate(people, item);\n\n  if (!isValidDate(communicationDate)) return null;\n\n  return {\n    type: 'COMMUNICATION_FALLBACK',\n    source: 'people.lastCommunication',\n    confidence: 'LOW',\n    date: communicationDate,\n    id: getLastCommunicationId(people, item),\n    reason: 'No hubo Last Call ni Last Text disponible; se tomó Last Communication como criterio válido.',\n    priorityGroup: 'COMMUNICATION_ONLY',\n    communicationType: getLastCommunicationType(people, item),\n    communicationDirection: getLastCommunicationDirection(people, item),\n  };\n}\n\nfunction resolveWinner(item) {\n  const people = getPeople(item);\n\n  const callCandidate = buildCallCandidate(people, item);\n  const textCandidate = buildTextCandidate(people, item);\n  const communicationCandidate = buildCommunicationCandidate(people, item);\n\n  const callOrTextCandidates = [callCandidate, textCandidate].filter(Boolean);\n  const allCandidates = [callCandidate, textCandidate, communicationCandidate].filter(Boolean);\n\n  /**\n   * Salvaguarda 1:\n   * Si solo existe un dato entre Last Call, Last Text o Last Communication,\n   * se toma automáticamente ese único dato.\n   */\n  if (allCandidates.length === 1) {\n    return allCandidates[0];\n  }\n\n  /**\n   * Regla principal:\n   * Si existe Last Call y/o Last Text, se elige el más reciente entre esos dos.\n   * Last Communication NO compite contra Call/Text cuando Call/Text existen.\n   */\n  if (callOrTextCandidates.length > 0) {\n    return pickMostRecent(callOrTextCandidates);\n  }\n\n  /**\n   * Salvaguarda 2:\n   * Si no hay Last Call ni Last Text, pero sí Last Communication,\n   * Last Communication se usa como criterio válido.\n   */\n  if (communicationCandidate) {\n    return communicationCandidate;\n  }\n\n  return null;\n}\n\nfunction buildFinalResult(item) {\n  const people = getPeople(item);\n  const winner = resolveWinner(item);\n\n  if (!winner) {\n    return {\n      finalLastCommunicationDate: '',\n      finalLastCommunicationDays: '',\n      finalLastCommunicationLabel: '',\n      finalLastCommunicationType: '',\n      finalLastCommunicationSource: '',\n      finalLastCommunicationConfidence: 'NONE',\n      finalLastCommunicationReason: 'No se encontró fecha válida en Last Call, Last Text ni Last Communication.',\n      finalLastCommunicationId: '',\n      finalLastCommunicationPriorityGroup: '',\n      finalLastCommunicationRawType: '',\n      finalLastCommunicationRawDirection: '',\n      finalCommunicationDecisionRule: 'NO_VALID_DATA',\n    };\n  }\n\n  const finalDateIso = toIsoOrBlank(winner.date);\n\n  return {\n    finalLastCommunicationDate: finalDateIso,\n    finalLastCommunicationDays: daysSince(finalDateIso),\n    finalLastCommunicationLabel: ageLabel(finalDateIso),\n    finalLastCommunicationType: winner.type,\n    finalLastCommunicationSource: winner.source,\n    finalLastCommunicationConfidence: winner.confidence,\n    finalLastCommunicationReason: winner.reason,\n    finalLastCommunicationId: winner.id || '',\n    finalLastCommunicationPriorityGroup: winner.priorityGroup || '',\n    finalLastCommunicationRawType: winner.communicationType || '',\n    finalLastCommunicationRawDirection: winner.communicationDirection || '',\n    finalCommunicationDecisionRule:\n      winner.priorityGroup === 'CALL_OR_TEXT'\n        ? 'CALL_OR_TEXT_WINS_BY_DATE'\n        : 'COMMUNICATION_USED_BECAUSE_CALL_AND_TEXT_EMPTY',\n  };\n}\n\nreturn items.map((item) => {\n  const json = item.json || {};\n  const people = json.people || {};\n  const resolved = buildFinalResult(json);\n\n  return {\n    json: {\n      ...json,\n\n      ...resolved,\n\n      // Diagnóstico de candidatos usados para validar en pruebas.\n      candidateLastEffectiveCallDate: json.lastEffectiveCallDate || '',\n      candidateLastEffectiveCallId: json.lastEffectiveCallId || '',\n\n      candidatePeopleLastCall: people.lastCall || json.lastCall || '',\n      candidatePeopleLastCallId: people.lastCallId || json.lastCallId || '',\n\n      candidateLastOutboundTextDate: json.lastOutboundTextDate || '',\n      candidateLastOutboundTextId: json.lastOutboundTextId || '',\n\n      candidatePeopleLastSentText:\n        people.lastSentText ||\n        json.lastSentText ||\n        people.lastText ||\n        json.lastText ||\n        '',\n\n      candidatePeopleLastSentTextId:\n        people.lastSentTextId ||\n        json.lastSentTextId ||\n        people.lastTextId ||\n        json.lastTextId ||\n        '',\n\n      candidatePeopleLastCommunication:\n        getLastCommunicationDate(people, json),\n\n      candidatePeopleLastCommunicationType:\n        getLastCommunicationType(people, json),\n\n      candidatePeopleLastCommunicationDirection:\n        getLastCommunicationDirection(people, json),\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4112,
+        6096
+      ],
+      "id": "49ca5023-e1e1-4a89-bd51-59a52d4a89e1",
+      "name": "Resolve Los Angeles Last Effective Communication"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/calls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3136,
+        6944
+      ],
+      "id": "87244e48-8687-4ccc-bafd-8369c9f402ef",
+      "name": "Get Orange Calls",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Split Out2').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction getCallDate(call) {\n  return call.created || call.createdAt || call.startedAt || call.started_at || call.date || call.updated || null;\n}\n\nfunction getDurationSeconds(call) {\n  const candidates = [\n    call.duration,\n    call.durationSeconds,\n    call.duration_seconds,\n    call.callDuration,\n    call.call_duration,\n    call.length,\n    call.talkTime,\n    call.talk_time,\n  ];\n\n  for (const value of candidates) {\n    const num = Number(value);\n    if (Number.isFinite(num) && num > 0) return num;\n  }\n\n  return 0;\n}\n\nfunction isEffectiveCall(call) {\n  const outcome = norm(call.outcome || call.result || call.status || call.disposition || call.callOutcome);\n  const note = norm(call.note || call.description || '');\n  const combined = `${outcome} ${note}`;\n  const duration = getDurationSeconds(call);\n\n  // Ajustable: palabras que NO deben contar como llamada efectiva.\n  const negativeKeywords = [\n    'no answer', 'no_answer', 'unanswered', 'missed', 'voicemail', 'voice mail',\n    'left voicemail', 'left vm', 'busy', 'failed', 'canceled', 'cancelled',\n    'wrong number', 'invalid', 'not connected', 'declined', 'did not answer'\n  ];\n\n  // Ajustable: palabras que sí indican conversación/llamada contestada.\n  const positiveKeywords = [\n    'answered', 'connected', 'spoke', 'conversation', 'completed', 'live answer',\n    'contacted', 'talked', 'reached'\n  ];\n\n  if (negativeKeywords.some(keyword => combined.includes(keyword))) return false;\n  if (positiveKeywords.some(keyword => combined.includes(keyword))) return true;\n\n  // Fallback conservador: si tiene duración y no fue marcada como fallida/no contestada, cuenta como efectiva.\n  return duration > 0;\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n  const statusCode = raw.statusCode || raw.status || body.statusCode || body.status || null;\n  const apiError = Boolean((statusCode && Number(statusCode) >= 400) || raw.error || body.error);\n\n  const calls = asArray(body.calls || raw.calls || body.recent_calls || raw.recent_calls)\n    .filter(call => call && typeof call === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getCallDate(a))?.getTime() || 0;\n      const db = parseDate(getCallDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestEffectiveCall = calls.find(isEffectiveCall) || null;\n  const latestEffectiveCallDate = latestEffectiveCall ? toIsoOrBlank(getCallDate(latestEffectiveCall)) : '';\n\n  return {\n    json: {\n      ...originalLead,\n      lastEffectiveCallDate: latestEffectiveCallDate,\n      lastEffectiveCallDays: latestEffectiveCallDate ? daysSince(latestEffectiveCallDate) : '',\n      lastEffectiveCallId: latestEffectiveCall?.id || '',\n      callsChecked: calls.length,\n      callsApiError: apiError,\n      callsApiStatusCode: statusCode || '',\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        6944
+      ],
+      "id": "e71e33e6-9035-4d4d-8a47-ee28896180c8",
+      "name": "Build Orange Effective Call"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/textMessages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.people.id }}"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "sort",
+              "value": "-created"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3584,
+        6944
+      ],
+      "id": "1d4d637e-93fb-47c8-ba5f-1e5a02866bef",
+      "name": "Get Orange Texts",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst leadItems = $('Build Orange Effective Call').all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction asArray(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction getBody(raw) {\n  if (raw.body && typeof raw.body === 'object') return raw.body;\n  return raw || {};\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\n/**\n * Fecha del texto.\n * Para mensajes de texto, se prioriza la fecha de envío si existe.\n * Si no existe, se usa created/createdAt como respaldo.\n */\nfunction getTextDate(text) {\n  return (\n    text.sentAt ||\n    text.sent ||\n    text.dateSent ||\n    text.created ||\n    text.createdAt ||\n    text.dateCreated ||\n    text.updated ||\n    text.updatedAt ||\n    null\n  );\n}\n\nfunction isIncoming(value) {\n  if (value === true || value === 1 || value === '1') return true;\n  if (value === false || value === 0 || value === '0') return false;\n\n  if (typeof value === 'string') {\n    const clean = value.trim().toLowerCase();\n\n    if (['true', 'yes', 'incoming', 'inbound', 'received'].includes(clean)) {\n      return true;\n    }\n\n    if (['false', 'no', 'outgoing', 'outbound', 'sent'].includes(clean)) {\n      return false;\n    }\n  }\n\n  return Boolean(value);\n}\n\nfunction isOutboundTextToLead(text) {\n  // En FUB normalmente isIncoming=false identifica mensajes salientes.\n  if (\n    Object.prototype.hasOwnProperty.call(text, 'isIncoming') ||\n    Object.prototype.hasOwnProperty.call(text, 'is_incoming')\n  ) {\n    return !isIncoming(text.isIncoming ?? text.is_incoming);\n  }\n\n  const direction = norm(text.direction || text.type || text.messageDirection || '');\n\n  if (['outbound', 'outgoing', 'sent'].includes(direction)) return true;\n  if (['inbound', 'incoming', 'received'].includes(direction)) return false;\n\n  // Si no hay dirección, no lo contamos como texto enviado para evitar falsos positivos.\n  return false;\n}\n\nfunction detectStatusCode(raw, body, errorMessage) {\n  const directStatus =\n    raw.statusCode ||\n    raw.status ||\n    body.statusCode ||\n    body.status ||\n    null;\n\n  if (directStatus) return directStatus;\n\n  // Fallback útil para errores de rate limit cuando n8n solo entrega errorMessage.\n  if (norm(errorMessage).includes('rate limit')) return 429;\n\n  return '';\n}\n\nfunction getErrorMessage(raw, body) {\n  return (\n    raw.errorMessage ||\n    body.errorMessage ||\n    raw.message ||\n    body.message ||\n    raw.error?.message ||\n    body.error?.message ||\n    ''\n  );\n}\n\nfunction getFallbackLastSentText(originalLead) {\n  const people = originalLead.people || {};\n\n  // Fuente más confiable cuando viene desde el objeto people de FUB.\n  const lastSentTextDate =\n    people.lastSentText ||\n    originalLead.lastSentText ||\n    '';\n\n  const lastSentTextId =\n    people.lastSentTextId ||\n    originalLead.lastSentTextId ||\n    '';\n\n  if (lastSentTextDate) {\n    return {\n      date: lastSentTextDate,\n      id: lastSentTextId,\n      source: 'people.lastSentText',\n    };\n  }\n\n  // Fallback adicional: lastCommunication solo si explícitamente es texto saliente.\n  const lastCommunication = people.lastCommunication || originalLead.lastCommunication || null;\n\n  if (\n    lastCommunication &&\n    typeof lastCommunication === 'object' &&\n    norm(lastCommunication.type).includes('text') &&\n    ['outgoing', 'outbound', 'sent'].includes(norm(lastCommunication.direction)) &&\n    lastCommunication.date\n  ) {\n    return {\n      date: lastCommunication.date,\n      id: lastCommunication.id || '',\n      source: 'people.lastCommunication',\n    };\n  }\n\n  return {\n    date: '',\n    id: '',\n    source: '',\n  };\n}\n\nreturn items.map((item, index) => {\n  const originalLead = leadItems[index]?.json || {};\n  const raw = item.json || {};\n  const body = getBody(raw);\n\n  const errorMessage = getErrorMessage(raw, body);\n  const statusCode = detectStatusCode(raw, body, errorMessage);\n\n  const apiError = Boolean(\n    (statusCode && Number(statusCode) >= 400) ||\n    raw.error ||\n    body.error ||\n    errorMessage\n  );\n\n  const texts = asArray(\n    body.textmessages ||\n    body.textMessages ||\n    body.texts ||\n    body.messages ||\n    raw.textmessages ||\n    raw.textMessages ||\n    raw.texts ||\n    raw.messages\n  )\n    .filter(text => text && typeof text === 'object')\n    .sort((a, b) => {\n      const da = parseDate(getTextDate(a))?.getTime() || 0;\n      const db = parseDate(getTextDate(b))?.getTime() || 0;\n      return db - da;\n    });\n\n  const latestOutboundText = texts.find(isOutboundTextToLead) || null;\n  const latestOutboundTextDate = latestOutboundText\n    ? toIsoOrBlank(getTextDate(latestOutboundText))\n    : '';\n\n  const fallbackText = getFallbackLastSentText(originalLead);\n\n  /**\n   * Resultado final:\n   * 1. Si el endpoint de textos trae un texto saliente, usa ese dato.\n   * 2. Si el endpoint falla, viene vacío o no trae textos salientes, usa people.lastSentText.\n   */\n  const finalOutboundTextDate = latestOutboundTextDate || fallbackText.date || '';\n  const finalOutboundTextId = latestOutboundText?.id || fallbackText.id || '';\n\n  const textDateSource = latestOutboundTextDate\n    ? 'texts_api'\n    : fallbackText.source || '';\n\n  return {\n    json: {\n      ...originalLead,\n\n      lastOutboundTextDate: finalOutboundTextDate\n        ? toIsoOrBlank(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextDays: finalOutboundTextDate\n        ? daysSince(finalOutboundTextDate)\n        : '',\n\n      lastOutboundTextId: finalOutboundTextId,\n\n      textsChecked: texts.length,\n\n      textsApiTotal:\n        body._metadata?.total ??\n        raw._metadata?.total ??\n        texts.length,\n\n      textsApiHasNextPage: Boolean(\n        body._metadata?.next ||\n        body._metadata?.nextLink ||\n        raw._metadata?.next ||\n        raw._metadata?.nextLink\n      ),\n\n      textsApiError: apiError,\n      textsApiStatusCode: statusCode || '',\n      textsApiErrorMessage: errorMessage || '',\n\n      textDateSource,\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3808,
+        6944
+      ],
+      "id": "9652a959-3b9a-401e-afe0-a98e3447aca8",
+      "name": "Build Orange Text Sent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\nconst MS_PER_DAY = 1000 * 60 * 60 * 24;\n\nfunction parseDate(value) {\n  if (!value) return null;\n\n  if (value instanceof Date && !Number.isNaN(value.getTime())) {\n    return value;\n  }\n\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction toIsoOrBlank(value) {\n  const date = parseDate(value);\n  return date ? date.toISOString() : '';\n}\n\nfunction daysSince(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return 0;\n\n  return Math.floor(diff / MS_PER_DAY);\n}\n\nfunction ageLabel(value) {\n  const date = parseDate(value);\n  if (!date) return '';\n\n  const diff = now.getTime() - date.getTime();\n  if (diff < 0) return '0 days, 0 hours';\n\n  const days = Math.floor(diff / MS_PER_DAY);\n  const hours = Math.floor((diff % MS_PER_DAY) / (1000 * 60 * 60));\n\n  return `${days} days, ${hours} hours`;\n}\n\nfunction norm(value) {\n  return String(value || '').trim().toLowerCase();\n}\n\nfunction isValidDate(value) {\n  return Boolean(parseDate(value));\n}\n\nfunction getPeople(item) {\n  return item.people || {};\n}\n\nfunction getLastCommunicationRaw(people, item) {\n  return people.lastCommunication || item.lastCommunication || null;\n}\n\nfunction getLastCommunicationDate(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (!lastCommunication) return '';\n\n  if (typeof lastCommunication === 'string') {\n    return lastCommunication;\n  }\n\n  if (typeof lastCommunication === 'object') {\n    return (\n      lastCommunication.date ||\n      lastCommunication.created ||\n      lastCommunication.createdAt ||\n      lastCommunication.sentAt ||\n      lastCommunication.sent ||\n      lastCommunication.updated ||\n      lastCommunication.updatedAt ||\n      ''\n    );\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationType(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.type || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationDirection(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.direction || '';\n  }\n\n  return '';\n}\n\nfunction getLastCommunicationId(people, item) {\n  const lastCommunication = getLastCommunicationRaw(people, item);\n\n  if (lastCommunication && typeof lastCommunication === 'object') {\n    return lastCommunication.id || '';\n  }\n\n  return '';\n}\n\nfunction pickMostRecent(candidates) {\n  const validCandidates = candidates\n    .filter(candidate => candidate && isValidDate(candidate.date))\n    .sort((a, b) => {\n      const da = parseDate(a.date)?.getTime() || 0;\n      const db = parseDate(b.date)?.getTime() || 0;\n      return db - da;\n    });\n\n  return validCandidates[0] || null;\n}\n\nfunction buildCallCandidate(people, item) {\n  // Prioridad 1: llamada efectiva calculada desde endpoint /calls.\n  if (isValidDate(item.lastEffectiveCallDate)) {\n    return {\n      type: 'CALL',\n      source: 'calls_api_effective_call',\n      confidence: 'HIGH',\n      date: item.lastEffectiveCallDate,\n      id: item.lastEffectiveCallId || '',\n      reason: 'Se tomó la última llamada efectiva detectada desde el endpoint de llamadas.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Call del perfil FUB.\n  if (isValidDate(people.lastCall || item.lastCall)) {\n    return {\n      type: 'CALL_PROFILE_FALLBACK',\n      source: 'people.lastCall',\n      confidence: 'MEDIUM',\n      date: people.lastCall || item.lastCall || '',\n      id: people.lastCallId || item.lastCallId || '',\n      reason: 'No hubo llamada efectiva desde API; se tomó Last Call del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildTextCandidate(people, item) {\n  // Prioridad 1: texto calculado desde endpoint /textMessages o fallback ya procesado.\n  if (isValidDate(item.lastOutboundTextDate)) {\n    return {\n      type: 'TEXT',\n      source: item.textDateSource || 'texts_api_or_people_lastSentText',\n      confidence: item.textDateSource === 'texts_api' ? 'HIGH' : 'MEDIUM',\n      date: item.lastOutboundTextDate,\n      id: item.lastOutboundTextId || '',\n      reason: item.textDateSource === 'texts_api'\n        ? 'Se tomó el último texto saliente detectado desde el endpoint de textos.'\n        : 'Se tomó el último texto saliente desde respaldo del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  // Respaldo: Last Text / Last Sent Text del perfil FUB.\n  if (isValidDate(people.lastSentText || item.lastSentText || people.lastText || item.lastText)) {\n    return {\n      type: 'TEXT_PROFILE_FALLBACK',\n      source: 'people.lastSentText',\n      confidence: 'MEDIUM',\n      date: people.lastSentText || item.lastSentText || people.lastText || item.lastText || '',\n      id: people.lastSentTextId || item.lastSentTextId || people.lastTextId || item.lastTextId || '',\n      reason: 'No hubo texto válido desde API; se tomó Last Text del perfil.',\n      priorityGroup: 'CALL_OR_TEXT',\n    };\n  }\n\n  return null;\n}\n\nfunction buildCommunicationCandidate(people, item) {\n  const communicationDate = getLastCommunicationDate(people, item);\n\n  if (!isValidDate(communicationDate)) return null;\n\n  return {\n    type: 'COMMUNICATION_FALLBACK',\n    source: 'people.lastCommunication',\n    confidence: 'LOW',\n    date: communicationDate,\n    id: getLastCommunicationId(people, item),\n    reason: 'No hubo Last Call ni Last Text disponible; se tomó Last Communication como criterio válido.',\n    priorityGroup: 'COMMUNICATION_ONLY',\n    communicationType: getLastCommunicationType(people, item),\n    communicationDirection: getLastCommunicationDirection(people, item),\n  };\n}\n\nfunction resolveWinner(item) {\n  const people = getPeople(item);\n\n  const callCandidate = buildCallCandidate(people, item);\n  const textCandidate = buildTextCandidate(people, item);\n  const communicationCandidate = buildCommunicationCandidate(people, item);\n\n  const callOrTextCandidates = [callCandidate, textCandidate].filter(Boolean);\n  const allCandidates = [callCandidate, textCandidate, communicationCandidate].filter(Boolean);\n\n  /**\n   * Salvaguarda 1:\n   * Si solo existe un dato entre Last Call, Last Text o Last Communication,\n   * se toma automáticamente ese único dato.\n   */\n  if (allCandidates.length === 1) {\n    return allCandidates[0];\n  }\n\n  /**\n   * Regla principal:\n   * Si existe Last Call y/o Last Text, se elige el más reciente entre esos dos.\n   * Last Communication NO compite contra Call/Text cuando Call/Text existen.\n   */\n  if (callOrTextCandidates.length > 0) {\n    return pickMostRecent(callOrTextCandidates);\n  }\n\n  /**\n   * Salvaguarda 2:\n   * Si no hay Last Call ni Last Text, pero sí Last Communication,\n   * Last Communication se usa como criterio válido.\n   */\n  if (communicationCandidate) {\n    return communicationCandidate;\n  }\n\n  return null;\n}\n\nfunction buildFinalResult(item) {\n  const people = getPeople(item);\n  const winner = resolveWinner(item);\n\n  if (!winner) {\n    return {\n      finalLastCommunicationDate: '',\n      finalLastCommunicationDays: '',\n      finalLastCommunicationLabel: '',\n      finalLastCommunicationType: '',\n      finalLastCommunicationSource: '',\n      finalLastCommunicationConfidence: 'NONE',\n      finalLastCommunicationReason: 'No se encontró fecha válida en Last Call, Last Text ni Last Communication.',\n      finalLastCommunicationId: '',\n      finalLastCommunicationPriorityGroup: '',\n      finalLastCommunicationRawType: '',\n      finalLastCommunicationRawDirection: '',\n      finalCommunicationDecisionRule: 'NO_VALID_DATA',\n    };\n  }\n\n  const finalDateIso = toIsoOrBlank(winner.date);\n\n  return {\n    finalLastCommunicationDate: finalDateIso,\n    finalLastCommunicationDays: daysSince(finalDateIso),\n    finalLastCommunicationLabel: ageLabel(finalDateIso),\n    finalLastCommunicationType: winner.type,\n    finalLastCommunicationSource: winner.source,\n    finalLastCommunicationConfidence: winner.confidence,\n    finalLastCommunicationReason: winner.reason,\n    finalLastCommunicationId: winner.id || '',\n    finalLastCommunicationPriorityGroup: winner.priorityGroup || '',\n    finalLastCommunicationRawType: winner.communicationType || '',\n    finalLastCommunicationRawDirection: winner.communicationDirection || '',\n    finalCommunicationDecisionRule:\n      winner.priorityGroup === 'CALL_OR_TEXT'\n        ? 'CALL_OR_TEXT_WINS_BY_DATE'\n        : 'COMMUNICATION_USED_BECAUSE_CALL_AND_TEXT_EMPTY',\n  };\n}\n\nreturn items.map((item) => {\n  const json = item.json || {};\n  const people = json.people || {};\n  const resolved = buildFinalResult(json);\n\n  return {\n    json: {\n      ...json,\n\n      ...resolved,\n\n      // Diagnóstico de candidatos usados para validar en pruebas.\n      candidateLastEffectiveCallDate: json.lastEffectiveCallDate || '',\n      candidateLastEffectiveCallId: json.lastEffectiveCallId || '',\n\n      candidatePeopleLastCall: people.lastCall || json.lastCall || '',\n      candidatePeopleLastCallId: people.lastCallId || json.lastCallId || '',\n\n      candidateLastOutboundTextDate: json.lastOutboundTextDate || '',\n      candidateLastOutboundTextId: json.lastOutboundTextId || '',\n\n      candidatePeopleLastSentText:\n        people.lastSentText ||\n        json.lastSentText ||\n        people.lastText ||\n        json.lastText ||\n        '',\n\n      candidatePeopleLastSentTextId:\n        people.lastSentTextId ||\n        json.lastSentTextId ||\n        people.lastTextId ||\n        json.lastTextId ||\n        '',\n\n      candidatePeopleLastCommunication:\n        getLastCommunicationDate(people, json),\n\n      candidatePeopleLastCommunicationType:\n        getLastCommunicationType(people, json),\n\n      candidatePeopleLastCommunicationDirection:\n        getLastCommunicationDirection(people, json),\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4032,
+        6944
+      ],
+      "id": "4d17be65-574d-4325-893b-726cea69a1e9",
+      "name": "Resolve Orange Last Effective Communication"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Clear sheet1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Riverside",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Riverside": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Get Orange Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Orange",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet OC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Orange": {
+      "main": [
+        [
+          {
+            "node": "OC Has people",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Los Angeles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Wait7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet LA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out3": {
+      "main": [
+        [
+          {
+            "node": "Get Los Angeles Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Los Angeles": {
+      "main": [
+        [
+          {
+            "node": "LA Has people",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Get Riverside Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LA Has people": {
+      "main": [
+        [
+          {
+            "node": "Split Out3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OC Has people": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait6": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait7": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Riverside Calls": {
+      "main": [
+        [
+          {
+            "node": "Build Riverside Effective Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Riverside Effective Call": {
+      "main": [
+        [
+          {
+            "node": "Get Riverside Texts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Riverside Texts": {
+      "main": [
+        [
+          {
+            "node": "Build Riverside Text Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Riverside Text Sent": {
+      "main": [
+        [
+          {
+            "node": "Resolve Last Effective Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Last Effective Communication": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Los Angeles Calls": {
+      "main": [
+        [
+          {
+            "node": "Build Los Angeles Effective Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Los Angeles Effective Call": {
+      "main": [
+        [
+          {
+            "node": "Get Los Angeles Texts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Los Angeles Texts": {
+      "main": [
+        [
+          {
+            "node": "Build Los Angeles Text Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Los Angeles Text Sent": {
+      "main": [
+        [
+          {
+            "node": "Resolve Los Angeles Last Effective Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Los Angeles Last Effective Communication": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Orange Calls": {
+      "main": [
+        [
+          {
+            "node": "Build Orange Effective Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Orange Effective Call": {
+      "main": [
+        [
+          {
+            "node": "Get Orange Texts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Orange Texts": {
+      "main": [
+        [
+          {
+            "node": "Build Orange Text Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Orange Text Sent": {
+      "main": [
+        [
+          {
+            "node": "Resolve Orange Last Effective Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Orange Last Effective Communication": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet LA": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet OC": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b27913f3-bf6e-4c21-b235-9627a9cbb124",
+  "meta": {},
+  "id": "demo-last-contact-resolver",
+  "tags": []
+}

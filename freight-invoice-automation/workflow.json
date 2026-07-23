@@ -1,0 +1,1131 @@
+{
+  "name": "Freight Invoice Automation (Portfolio Demo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        16
+      ],
+      "id": "50662199-16bb-40dd-8f57-56677df26c22",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?gid=2144758921",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2144758921,
+          "mode": "list",
+          "cachedResultName": "Facturador",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=2144758921"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "factura hecha",
+              "lookupValue": "No"
+            },
+            {
+              "lookupColumn": "BROKER",
+              "lookupValue": "ACME LOGISTICS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1360,
+        16
+      ],
+      "id": "dcbc9b83-a6ac-4f08-a3d3-9647b5bddad3",
+      "name": "Extraer Facturas",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KKvglKq0T4yB5y8t",
+          "name": "Google Sheets account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "'YOUR_SOURCE_PDF_FOLDER_ID' in parents and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id, name, mimeType, size, createdTime, webViewLink)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -832,
+        16
+      ],
+      "id": "c2132828-4a58-444c-8c69-cf7e4a08be8a",
+      "name": "Get All PDFs",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1LTuhYig3pvQogEc",
+          "name": "Google Drive account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bb2d9b18-986d-4dc6-aab3-06e9dbe62295",
+              "name": "DATE",
+              "value": "={{ $json.DATE }}",
+              "type": "string"
+            },
+            {
+              "id": "2aaff553-a82f-485b-8cd6-1c01943e3a1e",
+              "name": "BROKER",
+              "value": "={{ $json.BROKER }}",
+              "type": "string"
+            },
+            {
+              "id": "1f746208-216d-42e3-aeb5-9ab18f32700d",
+              "name": "PO",
+              "value": "={{ $json.PO }}",
+              "type": "string"
+            },
+            {
+              "id": "be16e459-fb00-463d-9632-0ae6674bebe6",
+              "name": "PICK UP",
+              "value": "={{ $json[\"PICK UP\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "e046d762-b69b-4f03-9c8f-bf3fca78700f",
+              "name": "DROP",
+              "value": "={{ $json.DROP }}",
+              "type": "string"
+            },
+            {
+              "id": "7e3d67b1-ed26-47b8-844d-88b57591567e",
+              "name": "AMOUNT",
+              "value": "={{ $json.AMOUNT }}",
+              "type": "string"
+            },
+            {
+              "id": "38e64043-84fa-4fa0-9c0c-603f22af56c4",
+              "name": "factura hecha",
+              "value": "={{ $json[\"factura hecha\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "23dc8bbc-ad87-43a6-91da-6b77336ae135",
+              "name": "Rate",
+              "value": "={{ $json.Rate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1184,
+        16
+      ],
+      "id": "f58ccfce-3706-42d4-9dae-3ad52dfabfee",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "YOUR_INVOICE_TEMPLATE_DOC_ID",
+          "mode": "id"
+        },
+        "name": "={{ $('Prep Dat Fact').item.json.filename }}",
+        "sameFolder": false,
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_WORKING_COPY_FOLDER_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        640,
+        112
+      ],
+      "id": "f72b6690-8040-4ac7-b1c9-c039438fa2f1",
+      "name": "Copy file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1LTuhYig3pvQogEc",
+          "name": "Google Drive account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.fileId }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        688,
+        352
+      ],
+      "id": "15fb4330-c13d-47ec-9669-45e5a477cc98",
+      "name": "Download file",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1LTuhYig3pvQogEc",
+          "name": "Google Drive account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1568,
+        336
+      ],
+      "id": "93eae046-040f-445a-8e86-fc1c40102aab",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/drive/v3/files/{{ $json.documentId }}/export?mimeType=application/pdf",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        960,
+        112
+      ],
+      "id": "813fe6fd-f4b0-4315-9446-fc14b0c7156c",
+      "name": "HTTP Request1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1LTuhYig3pvQogEc",
+          "name": "Google Drive account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Prep Dat Fact').item.json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_FINAL_INVOICES_FOLDER_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1920,
+        336
+      ],
+      "id": "67a65256-cdda-4121-b0c2-774360864cad",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "1LTuhYig3pvQogEc",
+          "name": "Google Drive account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "simple": false,
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "replaceAll",
+              "text": "{{INVOICE}}",
+              "replaceText": "={{ $('Prep Dat Fact').item.json.invoiceNumber }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{DATE}} ",
+              "replaceText": "={{ $('Prep Dat Fact').item.json.invoiceDate }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{RATE1}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit1 || 0) > 0 ? '$' + Number($('Prep Dat Fact').item.json.rate1 || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{RATE2}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit2 || 0) > 0 ? '$' + Number($('Prep Dat Fact').item.json.rate2 || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{SUB1}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit1 || 0) > 0 ? '$' + Number($('Prep Dat Fact').item.json.sub1 || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{SUB2}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit2 || 0) > 0 ? '$' + Number($('Prep Dat Fact').item.json.sub2 || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{UNIT1}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit1 || 0) > 0 ? $('Prep Dat Fact').item.json.unit1Formatted : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{UNIT2}}",
+              "replaceText": "={{ Number($('Prep Dat Fact').item.json.unit2 || 0) > 0 ? $('Prep Dat Fact').item.json.unit2Formatted : '' }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TOTAL}}",
+              "replaceText": "={{ '$' + Number($('Prep Dat Fact').item.json.total || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP1}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[0]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP2}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[1]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP3}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[2]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP4}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[3]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP5}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[4]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP6}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[5]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP7}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[6]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP8}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[7]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP9}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[8]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP10}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[9]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP11}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[10]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{TRIP12}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[11]?.TRIP;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : value;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO01}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[0]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO02}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[1]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO03}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[2]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO04}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[3]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO05}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[4]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO06}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[5]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO07}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[6]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO08}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[7]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO09}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[8]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO10}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[9]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO11}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[10]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            },
+            {
+              "action": "replaceAll",
+              "text": "{{PO12}}",
+              "replaceText": "={{ (() => {\n  const value = $('Prep Dat Fact').item.json.lineItems?.[11]?.PO;\n  const text = String(value ?? '').trim();\n\n  return text === '' || text === '0' ? '' : `${text} - `;\n})() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        800,
+        112
+      ],
+      "id": "9a8e5add-b6a2-4a21-a655-82fd931592a4",
+      "name": "Update a document",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "SnOZrzA5LNaFik1D",
+          "name": "Google Docs account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function pad(n) {\n  return String(n).padStart(2, '0');\n}\n\nfunction formatDate(date) {\n  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;\n}\n\nfunction getWeekRange(date) {\n  const dayOfWeek = date.getDay(); // domingo=0, lunes=1\n  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;\n\n  const weekStart = new Date(date);\n  weekStart.setDate(date.getDate() + diffToMonday);\n\n  const weekEnd = new Date(weekStart);\n  weekEnd.setDate(weekStart.getDate() + 6);\n\n  return { weekStart, weekEnd };\n}\n\nfunction normalizeFileName(name) {\n  return String(name || '')\n    .trim()\n    .replace(/\\s+/g, ' ')\n    .toLowerCase();\n}\n\nfunction validateAndExtractDate(file) {\n  const name = file.name || '';\n  const mimeType = file.mimeType || '';\n\n  const isPdf =\n    mimeType === 'application/pdf' ||\n    name.toLowerCase().endsWith('.pdf');\n\n  if (!isPdf) {\n    return {\n      valid: false,\n      reason: 'El archivo no es PDF'\n    };\n  }\n\n  if (!name.toLowerCase().endsWith('.pdf')) {\n    return {\n      valid: false,\n      reason: 'El archivo tiene MIME type de PDF, pero el nombre no termina en .pdf'\n    };\n  }\n\n  // Formato esperado:\n  // POD ALT10996 - 51526-8852LB.pdf\n  // POD ALT11014 -  51626-8858LB.pdf\n  const fullPattern = /^\\s*POD\\s+CAR(\\d+)\\s*-\\s*(\\d{5,6})-(\\d+)([A-Z]{2})\\.pdf\\s*$/i;\n  const match = name.match(fullPattern);\n\n  if (!match) {\n    return {\n      valid: false,\n      reason: 'El nombre no cumple el formato esperado: POD CAR##### - MMDDYY-####LB.pdf'\n    };\n  }\n\n  const altNumber = match[1];\n  const rawDate = match[2];\n  const loadNumber = match[3];\n  const suffix = match[4].toUpperCase();\n\n  let month;\n  let day;\n  let year;\n\n  if (rawDate.length === 5) {\n    // Ejemplo: 51526 = 5/15/26\n    month = Number(rawDate.slice(0, 1));\n    day = Number(rawDate.slice(1, 3));\n    year = Number(rawDate.slice(3, 5));\n  } else {\n    // Ejemplo: 101526 = 10/15/26\n    month = Number(rawDate.slice(0, 2));\n    day = Number(rawDate.slice(2, 4));\n    year = Number(rawDate.slice(4, 6));\n  }\n\n  if (!Number.isInteger(month) || month < 1 || month > 12) {\n    return {\n      valid: false,\n      reason: `Mes inválido en la fecha: ${rawDate}`,\n      rawDate,\n      altNumber,\n      loadNumber,\n      suffix\n    };\n  }\n\n  if (!Number.isInteger(day) || day < 1 || day > 31) {\n    return {\n      valid: false,\n      reason: `Día inválido en la fecha: ${rawDate}`,\n      rawDate,\n      altNumber,\n      loadNumber,\n      suffix\n    };\n  }\n\n  year = 2000 + year;\n\n  const date = new Date(year, month - 1, day);\n\n  // Validación estricta para evitar conversiones automáticas de JS.\n  // Ejemplo: 04/31/2026 no debe convertirse a 05/01/2026.\n  if (\n    isNaN(date.getTime()) ||\n    date.getFullYear() !== year ||\n    date.getMonth() !== month - 1 ||\n    date.getDate() !== day\n  ) {\n    return {\n      valid: false,\n      reason: `Fecha inválida o inexistente: ${rawDate}`,\n      rawDate,\n      altNumber,\n      loadNumber,\n      suffix\n    };\n  }\n\n  return {\n    valid: true,\n    rawDate,\n    date,\n    altNumber,\n    loadNumber,\n    suffix\n  };\n}\n\n// Soporta dos estructuras:\n// 1. Directo desde Get All PDFs: { files: [...] }\n// 2. Items separados: cada item es un archivo\nconst inputItems = $input.all();\n\nlet files = [];\n\nif (inputItems.length === 1 && Array.isArray(inputItems[0].json.files)) {\n  files = inputItems[0].json.files;\n} else {\n  files = inputItems.map(item => item.json);\n}\n\nconst groups = {};\nconst invalidFiles = [];\nconst seenFileNames = {};\nconst seenBusinessKeys = {};\n\nfor (const file of files) {\n  const validation = validateAndExtractDate(file);\n\n  if (!validation.valid) {\n    invalidFiles.push({\n      id: file.id || null,\n      name: file.name || null,\n      mimeType: file.mimeType || null,\n      webViewLink: file.webViewLink || null,\n      reason: validation.reason,\n      rawDate: validation.rawDate || null\n    });\n\n    continue;\n  }\n\n  const normalizedName = normalizeFileName(file.name);\n\n  const businessKey = [\n    validation.altNumber,\n    validation.rawDate,\n    validation.loadNumber,\n    validation.suffix\n  ].join('-');\n\n  if (seenFileNames[normalizedName]) {\n    invalidFiles.push({\n      id: file.id || null,\n      name: file.name || null,\n      mimeType: file.mimeType || null,\n      webViewLink: file.webViewLink || null,\n      reason: 'Archivo duplicado por nombre. Ya existe otro archivo con el mismo nombre.',\n      duplicateType: 'file_name',\n      duplicateOfId: seenFileNames[normalizedName].id,\n      duplicateOfName: seenFileNames[normalizedName].name,\n      rawDate: validation.rawDate || null,\n      altNumber: validation.altNumber,\n      loadNumber: validation.loadNumber,\n      suffix: validation.suffix\n    });\n\n    continue;\n  }\n\n  if (seenBusinessKeys[businessKey]) {\n    invalidFiles.push({\n      id: file.id || null,\n      name: file.name || null,\n      mimeType: file.mimeType || null,\n      webViewLink: file.webViewLink || null,\n      reason: 'Archivo duplicado por combinación CAR + fecha + load + sufijo.',\n      duplicateType: 'business_key',\n      duplicateOfId: seenBusinessKeys[businessKey].id,\n      duplicateOfName: seenBusinessKeys[businessKey].name,\n      rawDate: validation.rawDate || null,\n      altNumber: validation.altNumber,\n      loadNumber: validation.loadNumber,\n      suffix: validation.suffix\n    });\n\n    continue;\n  }\n\n  seenFileNames[normalizedName] = {\n    id: file.id || null,\n    name: file.name || null\n  };\n\n  seenBusinessKeys[businessKey] = {\n    id: file.id || null,\n    name: file.name || null\n  };\n\n  const { weekStart, weekEnd } = getWeekRange(validation.date);\n\n  const fileDate = formatDate(validation.date);\n  const weekStartText = formatDate(weekStart);\n  const weekEndText = formatDate(weekEnd);\n  const weekGroup = `${weekStartText}_to_${weekEndText}`;\n\n  if (!groups[weekGroup]) {\n    groups[weekGroup] = {\n      outputType: 'week_group',\n      weekGroup,\n      weekStart: weekStartText,\n      weekEnd: weekEndText,\n      totalFiles: 0,\n      files: []\n    };\n  }\n\n  groups[weekGroup].files.push({\n    ...file,\n    altNumber: validation.altNumber,\n    loadNumber: validation.loadNumber,\n    suffix: validation.suffix,\n    rawDate: validation.rawDate,\n    fileDate,\n    weekGroup,\n    weekStart: weekStartText,\n    weekEnd: weekEndText\n  });\n}\n\nfor (const group of Object.values(groups)) {\n  group.files.sort((a, b) => {\n    if (a.fileDate !== b.fileDate) {\n      return a.fileDate.localeCompare(b.fileDate);\n    }\n\n    return a.name.localeCompare(b.name);\n  });\n\n  group.totalFiles = group.files.length;\n}\n\nconst totalValidFiles = Object.values(groups).reduce((sum, group) => {\n  return sum + group.totalFiles;\n}, 0);\n\nconst output = Object.values(groups)\n  .sort((a, b) => a.weekStart.localeCompare(b.weekStart))\n  .map(group => ({\n    json: group\n  }));\n\noutput.push({\n  json: {\n    outputType: 'validation_report',\n    totalFilesDetected: files.length,\n    totalValidFiles,\n    totalInvalidFiles: invalidFiles.length,\n    totalDuplicateFiles: invalidFiles.filter(file =>\n      file.duplicateType === 'file_name' ||\n      file.duplicateType === 'business_key'\n    ).length,\n    invalidFiles\n  }\n});\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        16
+      ],
+      "id": "0e2837ab-955e-47dd-b253-613cee87ed73",
+      "name": "Agrupar por semana"
+    },
+    {
+      "parameters": {
+        "jsCode": "function pad(n) {\n  return String(n).padStart(2, '0');\n}\n\nfunction formatDate(date) {\n  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;\n}\n\nfunction parseRawDate(rawDate) {\n  let month;\n  let day;\n  let year;\n\n  if (!/^\\d{5,6}$/.test(rawDate)) {\n    return {\n      valid: false,\n      reason: `La fecha del PO no tiene 5 o 6 dígitos: ${rawDate}`\n    };\n  }\n\n  if (rawDate.length === 5) {\n    // Ejemplo: 51526 = 5/15/26\n    month = Number(rawDate.slice(0, 1));\n    day = Number(rawDate.slice(1, 3));\n    year = Number(rawDate.slice(3, 5));\n  } else {\n    // Ejemplo: 101526 = 10/15/26\n    month = Number(rawDate.slice(0, 2));\n    day = Number(rawDate.slice(2, 4));\n    year = Number(rawDate.slice(4, 6));\n  }\n\n  if (!Number.isInteger(month) || month < 1 || month > 12) {\n    return {\n      valid: false,\n      reason: `Mes inválido en la fecha del PO: ${rawDate}`\n    };\n  }\n\n  if (!Number.isInteger(day) || day < 1 || day > 31) {\n    return {\n      valid: false,\n      reason: `Día inválido en la fecha del PO: ${rawDate}`\n    };\n  }\n\n  year = 2000 + year;\n\n  const date = new Date(year, month - 1, day);\n\n  if (\n    isNaN(date.getTime()) ||\n    date.getFullYear() !== year ||\n    date.getMonth() !== month - 1 ||\n    date.getDate() !== day\n  ) {\n    return {\n      valid: false,\n      reason: `Fecha del PO inválida o inexistente: ${rawDate}`\n    };\n  }\n\n  return {\n    valid: true,\n    date,\n    month,\n    day,\n    year\n  };\n}\n\nfunction normalizeText(value) {\n  return String(value || '').trim().replace(/\\s+/g, ' ');\n}\n\nfunction normalizeMoney(value) {\n  return String(value || '').trim();\n}\n\nfunction parsePO(poValue) {\n  const po = normalizeText(poValue);\n\n  if (!po) {\n    return {\n      valid: false,\n      reason: 'La columna PO está vacía'\n    };\n  }\n\n  // Formato esperado en Sheet:\n  // ALT10996 - 51526-8852LB\n  // También tolera:\n  // POD ALT10996 - 51526-8852LB.pdf\n  const pattern = /^\\s*(?:POD\\s+)?CAR(\\d+)\\s*-\\s*(\\d{5,6})-(\\d+)\\s*([A-Z]{2})\\s*(?:\\.pdf)?\\s*$/i;\n  const match = po.match(pattern);\n\n  if (!match) {\n    return {\n      valid: false,\n      reason: 'El PO no cumple el formato esperado: CAR##### - MMDDYY-####LB',\n      po\n    };\n  }\n\n  const altNumber = match[1];\n  const rawDate = match[2];\n  const loadNumber = match[3];\n  const suffix = match[4].toUpperCase();\n\n  // Esta validación se mantiene porque la fecha forma parte de la clave del PO/PDF.\n  // No se usa para validar DATE del Sheet ni para calcular la semana de facturación.\n  const parsedDate = parseRawDate(rawDate);\n\n  if (!parsedDate.valid) {\n    return {\n      valid: false,\n      reason: parsedDate.reason,\n      po,\n      rawDate,\n      altNumber,\n      loadNumber,\n      suffix\n    };\n  }\n\n  const poKey = [\n    altNumber,\n    rawDate,\n    loadNumber,\n    suffix\n  ].join('-');\n\n  const normalizedPO = `CAR${altNumber} - ${rawDate}-${loadNumber}${suffix}`;\n  const expectedPdfName = `POD CAR${altNumber} - ${rawDate}-${loadNumber}${suffix}.pdf`;\n\n  return {\n    valid: true,\n    po,\n    normalizedPO,\n    expectedPdfName,\n    poKey,\n    altNumber,\n    rawDate,\n    loadNumber,\n    suffix,\n    dateFromPO: parsedDate.date\n  };\n}\n\nconst inputItems = $input.all();\n\nconst readyRows = [];\nconst invalidRows = [];\n\n// DATE del Sheet se conserva solo como dato informativo.\n// No se parsea, no se valida, no bloquea y no calcula semana.\nfor (let index = 0; index < inputItems.length; index++) {\n  const row = inputItems[index].json;\n\n  const poValue = row.PO;\n  const sheetDateInformative = row.DATE ?? null;\n\n  const parsedPO = parsePO(poValue);\n\n  if (!parsedPO.valid) {\n    invalidRows.push({\n      rowIndex: index,\n      PO: poValue || null,\n      DATE: sheetDateInformative,\n      sheetDateInformative,\n      reason: parsedPO.reason,\n      originalRow: row\n    });\n\n    continue;\n  }\n\n  const poDateText = formatDate(parsedPO.dateFromPO);\n\n  const readyRow = {\n    rowIndex: index,\n\n    // Campos normalizados para cruzar contra PDF.\n    poKey: parsedPO.poKey,\n    normalizedPO: parsedPO.normalizedPO,\n    expectedPdfName: parsedPO.expectedPdfName,\n\n    altNumber: parsedPO.altNumber,\n    rawDate: parsedPO.rawDate,\n    loadNumber: parsedPO.loadNumber,\n    suffix: parsedPO.suffix,\n\n    // Fecha del PO solo como referencia de la clave.\n    // La semana oficial se asigna después, en Cruzar Facturas, usando el PDF encontrado.\n    dateFromPO: poDateText,\n    poDateInformative: poDateText,\n\n    // DATE del Sheet queda solo para trazabilidad.\n    DATE: sheetDateInformative,\n    sheetDateInformative,\n\n    // Estos campos se llenan después desde el PDF.\n    date: null,\n    dateFromPdf: null,\n    fileDate: null,\n    weekGroup: null,\n    weekStart: null,\n    weekEnd: null,\n\n    // Campos neutrales para compatibilidad; ya no dependen de DATE del Sheet.\n    hasDateMismatch: false,\n    dateMismatchWarning: null,\n    dateRelationStatus: 'NOT_EVALUATED_SHEET_DATE_IGNORED',\n    dateRelationFacturable: true,\n    dateRelationMessage: 'DATE del Sheet conservado solo como dato informativo; no se valida ni bloquea.',\n    dateRelationPoWeekGroup: null,\n    dateRelationSheetWeekGroup: null,\n\n    // Campos del Sheet que se usan para la factura.\n    TRUCK: row.TRUCK || null,\n    TRIP: row['TRIP´#'] || row['TRIP #'] || row.TRIP || null,\n    DRIVER: row.DRIVER || null,\n    BROKER: row.BROKER || null,\n    PO: row.PO || null,\n    PICK_UP: row['PICK UP'] || null,\n    DROP: row.DROP || null,\n    BILL: row.BILL || null,\n    RC: row.RC || null,\n    DI: row.DI || null,\n    POD: row.POD || null,\n    AMOUNT: normalizeMoney(row.AMOUNT),\n    RATE: normalizeMoney(row.Rate || row.RATE),\n    factura_hecha: row['factura hecha'] || null,\n\n    originalRow: row\n  };\n\n  readyRows.push(readyRow);\n}\n\nreadyRows.sort((a, b) => {\n  return a.normalizedPO.localeCompare(b.normalizedPO);\n});\n\nreturn [\n  {\n    json: {\n      outputType: 'ready_rows_package',\n      maxPerInvoice: 12,\n\n      totalRowsDetected: inputItems.length,\n      totalReadyRows: readyRows.length,\n      totalInvalidRows: invalidRows.length,\n\n      // Se conservan en cero por compatibilidad, pero ya no se calculan desde DATE del Sheet.\n      totalRowsWithDateMismatch: 0,\n      totalRowsWithDateRelationBlocked: 0,\n      totalWeeks: 0,\n\n      readyRows,\n      rowsByWeek: [],\n      invalidRows,\n      dateMismatchRows: [],\n      dateRelationBlockedRows: [],\n\n      dateSheetPolicy: {\n        mode: 'informative_only',\n        validates: false,\n        blocks: false,\n        calculatesWeek: false\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        16
+      ],
+      "id": "3949eb65-2d25-4bde-87f2-9b1a0e712998",
+      "name": "Preparar facturas listas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const MAX_PER_INVOICE = 12;\n\nfunction chunkArray(array, size) {\n  const chunks = [];\n\n  for (let i = 0; i < array.length; i += size) {\n    chunks.push(array.slice(i, i + size));\n  }\n\n  return chunks;\n}\n\nfunction makePdfKey(file) {\n  return [\n    file.altNumber,\n    file.rawDate,\n    file.loadNumber,\n    file.suffix\n  ].join('-');\n}\n\nfunction parseAmount(value) {\n  if (value === undefined || value === null || value === '') {\n    return 0;\n  }\n\n  const cleaned = String(value)\n    .replace(/\\$/g, '')\n    .replace(/,/g, '')\n    .replace(/\\s/g, '')\n    .trim();\n\n  const number = Number(cleaned);\n\n  return Number.isFinite(number) ? number : 0;\n}\n\nfunction sortRows(a, b) {\n  const aDate = a.dateFromPdf || a.fileDate || a.matchedFile?.fileDate || '';\n  const bDate = b.dateFromPdf || b.fileDate || b.matchedFile?.fileDate || '';\n\n  if (aDate !== bDate) {\n    return String(aDate).localeCompare(String(bDate));\n  }\n\n  return String(a.normalizedPO || '').localeCompare(String(b.normalizedPO || ''));\n}\n\nfunction getPdfWeekKey(file) {\n  return file?.sourceWeekGroup || file?.weekGroup || null;\n}\n\nfunction getPdfWeekStart(file) {\n  return file?.sourceWeekStart || file?.weekStart || null;\n}\n\nfunction getPdfWeekEnd(file) {\n  return file?.sourceWeekEnd || file?.weekEnd || null;\n}\n\n// Este nombre debe coincidir EXACTAMENTE con tu nodo anterior.\nconst preparedPackage = $('Preparar facturas listas').first().json;\n\nconst readyRows = preparedPackage.readyRows || [];\nconst invalidRowsFromPrepare = preparedPackage.invalidRows || [];\n\n// Input directo de este nodo: salida de \"Agrupar por semana\".\nconst inputItems = $input.all().map(item => item.json);\n\nconst pdfWeekGroups = inputItems.filter(item => item.outputType === 'week_group');\nconst pdfValidationReports = inputItems.filter(item => item.outputType === 'validation_report');\n\nconst pdfValidationReport = pdfValidationReports[0] || {\n  totalFilesDetected: 0,\n  totalValidFiles: 0,\n  totalInvalidFiles: 0,\n  totalDuplicateFiles: 0,\n  invalidFiles: []\n};\n\nconst pdfByKey = {};\nconst allValidPdfFiles = [];\n\nfor (const group of pdfWeekGroups) {\n  const files = group.files || [];\n\n  for (const file of files) {\n    const pdfKey = makePdfKey(file);\n\n    const enrichedFile = {\n      ...file,\n      pdfKey,\n      sourceWeekGroup: group.weekGroup,\n      sourceWeekStart: group.weekStart,\n      sourceWeekEnd: group.weekEnd\n    };\n\n    allValidPdfFiles.push(enrichedFile);\n\n    if (!pdfByKey[pdfKey]) {\n      pdfByKey[pdfKey] = [];\n    }\n\n    pdfByKey[pdfKey].push(enrichedFile);\n  }\n}\n\nconst rowsByWeek = {};\nconst matchedPdfKeys = {};\nconst seenSheetKeys = {};\n\nfor (const row of readyRows) {\n  const rowKey = row.poKey;\n  const pdfMatches = pdfByKey[rowKey] || [];\n  const referenceFile = pdfMatches[0] || null;\n\n  let matchStatus = 'matched';\n  let matchReason = null;\n  let matchedFile = null;\n\n  if (seenSheetKeys[rowKey]) {\n    matchStatus = 'sheet_duplicate';\n    matchReason = 'PO duplicado dentro de las filas listas del Sheet';\n  } else {\n    seenSheetKeys[rowKey] = {\n      rowIndex: row.rowIndex,\n      PO: row.PO,\n      normalizedPO: row.normalizedPO\n    };\n\n    if (pdfMatches.length === 0) {\n      matchStatus = 'missing_pdf';\n      matchReason = 'No se encontró PDF correspondiente en Drive';\n    } else if (pdfMatches.length > 1) {\n      matchStatus = 'duplicate_pdf';\n      matchReason = 'Se encontró más de un PDF válido con la misma clave';\n    } else {\n      matchedFile = pdfMatches[0];\n      matchedPdfKeys[rowKey] = true;\n    }\n  }\n\n  const effectiveFile = matchedFile || referenceFile;\n  const pdfWeekGroup = getPdfWeekKey(effectiveFile);\n  const pdfWeekStart = getPdfWeekStart(effectiveFile);\n  const pdfWeekEnd = getPdfWeekEnd(effectiveFile);\n  const pdfFileDate = effectiveFile?.fileDate || null;\n\n  const enrichedRow = {\n    ...row,\n\n    matchStatus,\n    matchReason,\n    matchedFile,\n\n    // Fecha y semana oficiales: salen exclusivamente del PDF encontrado.\n    date: pdfFileDate,\n    dateFromPdf: pdfFileDate,\n    fileDate: pdfFileDate,\n    weekGroup: pdfWeekGroup,\n    weekStart: pdfWeekStart,\n    weekEnd: pdfWeekEnd,\n\n    // DATE del Sheet se mantiene únicamente como dato informativo.\n    sheetDateInformative: row.sheetDateInformative ?? row.DATE ?? null,\n\n    // Compatibilidad sin bloqueo por DATE.\n    hasDateMismatch: false,\n    dateMismatchWarning: null,\n    dateRelationStatus: 'NOT_EVALUATED_SHEET_DATE_IGNORED',\n    dateRelationFacturable: true,\n    dateRelationMessage: 'DATE del Sheet conservado solo como dato informativo; no se valida ni bloquea.',\n    dateRelationPoWeekGroup: null,\n    dateRelationSheetWeekGroup: null\n  };\n\n  // Si no hay PDF, no existe semana oficial calculable desde filename.\n  // Se agrupa en una llave de diagnóstico, sin inventar semana desde DATE del Sheet ni desde PO.\n  const groupKey = pdfWeekGroup || 'WITHOUT_MATCHED_PDF';\n  const groupStart = pdfWeekStart || null;\n  const groupEnd = pdfWeekEnd || null;\n\n  if (!rowsByWeek[groupKey]) {\n    rowsByWeek[groupKey] = {\n      weekGroup: groupKey,\n      weekStart: groupStart,\n      weekEnd: groupEnd,\n      rows: []\n    };\n  }\n\n  rowsByWeek[groupKey].rows.push(enrichedRow);\n}\n\nfor (const group of Object.values(rowsByWeek)) {\n  group.rows.sort(sortRows);\n}\n\nconst output = [];\nconst readyInvoiceGroups = [];\nconst notReadyInvoiceGroups = [];\n\nconst sortedWeekGroups = Object.values(rowsByWeek)\n  .sort((a, b) => {\n    const aStart = a.weekStart || '9999-99-99';\n    const bStart = b.weekStart || '9999-99-99';\n\n    if (aStart !== bStart) {\n      return aStart.localeCompare(bStart);\n    }\n\n    return String(a.weekGroup).localeCompare(String(b.weekGroup));\n  });\n\nfor (const weekGroup of sortedWeekGroups) {\n  const chunks = chunkArray(weekGroup.rows, MAX_PER_INVOICE);\n  const totalParts = chunks.length;\n\n  chunks.forEach((chunk, index) => {\n    const part = index + 1;\n    const invoiceGroupKey = `${weekGroup.weekGroup}_part_${part}`;\n\n    const matchedRows = chunk.filter(row => row.matchStatus === 'matched');\n    const problemRows = chunk.filter(row => row.matchStatus !== 'matched');\n\n    const files = matchedRows\n      .map(row => row.matchedFile)\n      .filter(Boolean);\n\n    const totalAmount = matchedRows.reduce((sum, row) => {\n      return sum + parseAmount(row.AMOUNT);\n    }, 0);\n\n    const baseGroup = {\n      invoiceGroupKey,\n      weekGroup: weekGroup.weekGroup,\n      weekStart: weekGroup.weekStart,\n      weekEnd: weekGroup.weekEnd,\n      part,\n      totalParts,\n      maxPerInvoice: MAX_PER_INVOICE,\n\n      totalRows: chunk.length,\n      totalMatchedRows: matchedRows.length,\n      totalProblemRows: problemRows.length,\n      totalFiles: files.length,\n      totalAmount,\n\n      rows: chunk,\n      matchedRows,\n      problemRows,\n      files,\n\n      weekSource: weekGroup.weekGroup === 'WITHOUT_MATCHED_PDF'\n        ? 'no_pdf_match_available'\n        : 'pdf_filename'\n    };\n\n    if (problemRows.length === 0) {\n      const readyGroup = {\n        outputType: 'invoice_ready_group',\n        ...baseGroup\n      };\n\n      readyInvoiceGroups.push(readyGroup);\n      output.push({ json: readyGroup });\n    } else {\n      const notReadyGroup = {\n        outputType: 'invoice_not_ready_group',\n        ...baseGroup,\n        missingRows: problemRows.filter(row => row.matchStatus === 'missing_pdf'),\n        duplicateSheetRows: problemRows.filter(row => row.matchStatus === 'sheet_duplicate'),\n        duplicatePdfRows: problemRows.filter(row => row.matchStatus === 'duplicate_pdf')\n      };\n\n      notReadyInvoiceGroups.push(notReadyGroup);\n      output.push({ json: notReadyGroup });\n    }\n  });\n}\n\nconst readySheetKeys = {};\nfor (const row of readyRows) {\n  readySheetKeys[row.poKey] = true;\n}\n\nconst ignoredValidPdfFiles = allValidPdfFiles.filter(file => {\n  return !readySheetKeys[file.pdfKey];\n});\n\nconst crosscheckReport = {\n  outputType: 'invoice_crosscheck_report',\n\n  maxPerInvoice: MAX_PER_INVOICE,\n\n  totalSheetRowsDetected: preparedPackage.totalRowsDetected || readyRows.length,\n  totalReadyRowsFromSheet: readyRows.length,\n  totalInvalidRowsFromPrepare: invalidRowsFromPrepare.length,\n\n  totalValidPdfFilesDetected: allValidPdfFiles.length,\n  totalInvalidPdfFilesDetected: pdfValidationReport.totalInvalidFiles || 0,\n  totalDuplicatePdfFilesDetected: pdfValidationReport.totalDuplicateFiles || 0,\n\n  totalReadyInvoiceGroups: readyInvoiceGroups.length,\n  totalNotReadyInvoiceGroups: notReadyInvoiceGroups.length,\n\n  totalIgnoredValidPdfFiles: ignoredValidPdfFiles.length,\n\n  invalidRowsFromPrepare,\n  pdfValidationReport,\n  ignoredValidPdfFiles,\n\n  readyInvoiceGroupKeys: readyInvoiceGroups.map(group => group.invoiceGroupKey),\n  notReadyInvoiceGroupKeys: notReadyInvoiceGroups.map(group => group.invoiceGroupKey),\n\n  dateSheetPolicy: {\n    mode: 'informative_only',\n    validates: false,\n    blocks: false,\n    calculatesWeek: false\n  }\n};\n\noutput.push({\n  json: crosscheckReport\n});\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        16
+      ],
+      "id": "793e4719-a96f-4282-ab87-0b90a2b40f22",
+      "name": "Cruzar Facturas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "927b9171-bfc7-4336-a8ad-4a7614c28995",
+              "leftValue": "={{ $json.outputType }}",
+              "rightValue": "invoice_ready_group",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        16
+      ],
+      "id": "0604036b-f6be-43c1-acd4-b5469ee1f7ed",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeText(value) {\n  return String(value || '').trim().replace(/\\s+/g, ' ');\n}\n\nfunction analyzeAmount(value) {\n  const originalValue = value;\n\n  if (value === undefined || value === null || String(value).trim() === '') {\n    return {\n      valid: false,\n      amount: null,\n      reason: 'El campo AMOUNT está vacío',\n      originalValue\n    };\n  }\n\n  const cleaned = String(value)\n    .replace(/\\$/g, '')\n    .replace(/,/g, '')\n    .replace(/\\s/g, '')\n    .trim();\n\n  if (cleaned === '') {\n    return {\n      valid: false,\n      amount: null,\n      reason: 'El campo AMOUNT no contiene un valor numérico',\n      originalValue\n    };\n  }\n\n  const number = Number(cleaned);\n\n  if (!Number.isFinite(number)) {\n    return {\n      valid: false,\n      amount: null,\n      reason: `El campo AMOUNT no es numérico: ${value}`,\n      originalValue\n    };\n  }\n\n  return {\n    valid: true,\n    amount: number,\n    reason: null,\n    originalValue\n  };\n}\n\nfunction formatMoney(value) {\n  const number = Number(value);\n\n  if (!Number.isFinite(number)) {\n    return '';\n  }\n\n  return '$' + number.toLocaleString('de-DE', {\n    minimumFractionDigits: 2,\n    maximumFractionDigits: 2\n  });\n}\n\nfunction formatDateUS(value) {\n  if (!value) {\n    return '';\n  }\n\n  const text = String(value).trim();\n\n  const isoMatch = text.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);\n\n  if (isoMatch) {\n    const year = isoMatch[1];\n    const month = isoMatch[2];\n    const day = isoMatch[3];\n\n    return `${month}/${day}/${year}`;\n  }\n\n  const slashMatch = text.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);\n\n  if (slashMatch) {\n    const month = String(slashMatch[1]).padStart(2, '0');\n    const day = String(slashMatch[2]).padStart(2, '0');\n    let year = slashMatch[3];\n\n    if (year.length === 2) {\n      year = `20${year}`;\n    }\n\n    return `${month}/${day}/${year}`;\n  }\n\n  return text;\n}\n\n// NUEVA FUNCIÓN PARA FORMATO DE FECHA DE FACTURA:\n// 2026-05-16 => 16 May 2026\n// 05/16/2026 => 16 May 2026\nfunction formatDateInvoiceLong(value) {\n  if (!value) {\n    return '';\n  }\n\n  let year;\n  let month;\n  let day;\n\n  if (value instanceof Date) {\n    if (isNaN(value.getTime())) {\n      return '';\n    }\n\n    year = value.getFullYear();\n    month = value.getMonth() + 1;\n    day = value.getDate();\n  } else {\n    const text = String(value).trim();\n\n    const isoMatch = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);\n\n    if (isoMatch) {\n      year = Number(isoMatch[1]);\n      month = Number(isoMatch[2]);\n      day = Number(isoMatch[3]);\n    } else {\n      const slashMatch = text.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);\n\n      if (slashMatch) {\n        month = Number(slashMatch[1]);\n        day = Number(slashMatch[2]);\n        year = Number(slashMatch[3]);\n\n        if (year < 100) {\n          year = 2000 + year;\n        }\n      } else {\n        return text;\n      }\n    }\n  }\n\n  const date = new Date(year, month - 1, day);\n\n  if (\n    isNaN(date.getTime()) ||\n    date.getFullYear() !== year ||\n    date.getMonth() !== month - 1 ||\n    date.getDate() !== day\n  ) {\n    return '';\n  }\n\n  const months = [\n    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',\n    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'\n  ];\n\n  return `${day} ${months[month - 1]} ${year}`;\n}\n\nfunction pad(n) {\n  return String(n).padStart(2, '0');\n}\n\nfunction formatDateISO(date) {\n  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;\n}\n\nfunction parseISODateOnly(value) {\n  if (!value) {\n    return null;\n  }\n\n  const text = String(value).trim();\n  const match = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);\n\n  if (!match) {\n    return null;\n  }\n\n  const year = Number(match[1]);\n  const month = Number(match[2]);\n  const day = Number(match[3]);\n  const date = new Date(year, month - 1, day);\n\n  if (\n    isNaN(date.getTime()) ||\n    date.getFullYear() !== year ||\n    date.getMonth() !== month - 1 ||\n    date.getDate() !== day\n  ) {\n    return null;\n  }\n\n  return date;\n}\n\nfunction getSaturdayFromWeekStart(weekStartText) {\n  const weekStart = parseISODateOnly(weekStartText);\n\n  if (!weekStart) {\n    return null;\n  }\n\n  const saturday = new Date(weekStart);\n  saturday.setDate(weekStart.getDate() + 5);\n\n  return saturday;\n}\n\nfunction getInvoiceDateFromBillingWeek(invoiceGroup, files, rows, invoiceBaseRow) {\n  // La fecha de factura sale de la semana calculada desde el nombre del PDF.\n  // Prioridad: metadata del PDF > metadata del grupo > metadata de la fila enriquecida.\n  const invoiceWeekStart =\n    files?.[0]?.sourceWeekStart ||\n    files?.[0]?.weekStart ||\n    invoiceGroup.weekStart ||\n    rows?.[0]?.weekStart ||\n    null;\n\n  const saturday = getSaturdayFromWeekStart(invoiceWeekStart);\n\n  if (saturday) {\n    return formatDateInvoiceLong(formatDateISO(saturday));\n  }\n\n  // Fallback defensivo: usar fecha del PDF si existe.\n  const pdfDate =\n    files?.[0]?.fileDate ||\n    rows?.[0]?.dateFromPdf ||\n    rows?.[0]?.fileDate ||\n    rows?.[0]?.matchedFile?.fileDate ||\n    null;\n\n  return formatDateInvoiceLong(pdfDate);\n}\n\nfunction parseDateForSort(value) {\n  if (!value) {\n    return Number.POSITIVE_INFINITY;\n  }\n\n  const text = String(value).trim();\n\n  const isoMatch = text.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);\n\n  if (isoMatch) {\n    const year = Number(isoMatch[1]);\n    const month = Number(isoMatch[2]);\n    const day = Number(isoMatch[3]);\n    const date = new Date(year, month - 1, day);\n\n    return Number.isFinite(date.getTime()) ? date.getTime() : Number.POSITIVE_INFINITY;\n  }\n\n  const slashMatch = text.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);\n\n  if (slashMatch) {\n    const month = Number(slashMatch[1]);\n    const day = Number(slashMatch[2]);\n    let year = Number(slashMatch[3]);\n\n    if (year < 100) {\n      year = 2000 + year;\n    }\n\n    const date = new Date(year, month - 1, day);\n\n    return Number.isFinite(date.getTime()) ? date.getTime() : Number.POSITIVE_INFINITY;\n  }\n\n  return Number.POSITIVE_INFINITY;\n}\n\nfunction getInvoiceBaseRow(rows) {\n  if (!Array.isArray(rows) || rows.length === 0) {\n    return null;\n  }\n\n  return rows.reduce((selectedRow, currentRow) => {\n    const selectedDate = parseDateForSort(\n      selectedRow.dateFromPdf || selectedRow.fileDate || selectedRow.matchedFile?.fileDate\n    );\n\n    const currentDate = parseDateForSort(\n      currentRow.dateFromPdf || currentRow.fileDate || currentRow.matchedFile?.fileDate\n    );\n\n    if (currentDate < selectedDate) {\n      return currentRow;\n    }\n\n    if (currentDate === selectedDate) {\n      const selectedIndex = Number(selectedRow.rowIndex ?? Number.POSITIVE_INFINITY);\n      const currentIndex = Number(currentRow.rowIndex ?? Number.POSITIVE_INFINITY);\n\n      if (currentIndex < selectedIndex) {\n        return currentRow;\n      }\n    }\n\n    return selectedRow;\n  }, rows[0]);\n}\n\nfunction countDestinations(dropValue) {\n  const drop = normalizeText(dropValue);\n\n  if (!drop) {\n    return 0;\n  }\n\n  const destinations = drop\n    .split(/\\s*(?:,|;|\\||\\/|\\+|&)\\s*/)\n    .map(destination => destination.trim())\n    .filter(Boolean);\n\n  return destinations.length || 1;\n}\n\nfunction extractAltFromRow(row) {\n  if (row.altNumber) {\n    return `CAR${row.altNumber}`;\n  }\n\n  const po = normalizeText(row.PO);\n  const match = po.match(/CAR\\d+/i);\n\n  if (match) {\n    return match[0].toUpperCase();\n  }\n\n  return 'ALT_UNKNOWN';\n}\n\nfunction buildPoText(row) {\n  if (row.rawDate && row.loadNumber && row.suffix) {\n    return `${row.rawDate}-${row.loadNumber}${row.suffix}`;\n  }\n\n  const po = normalizeText(row.PO);\n\n  if (!po) {\n    return '';\n  }\n\n  return po.replace(/^\\s*CAR\\d+\\s*-\\s*/i, '').trim();\n}\n\nfunction buildTripText(row) {\n  const drop = normalizeText(row.DROP);\n  const alt = extractAltFromRow(row);\n\n  if (!drop && alt === 'ALT_UNKNOWN') {\n    return '';\n  }\n\n  if (!drop) {\n    return `(${alt}) [HUB CITY]`;\n  }\n\n  if (alt === 'ALT_UNKNOWN') {\n    return `${drop} [HUB CITY]`;\n  }\n\n  return `${drop} (${alt}) [HUB CITY]`;\n}\n\nfunction addReplacement(replacements, replacementArray, key, value) {\n  const safeValue = value === undefined || value === null ? '' : String(value);\n\n  replacements[key] = safeValue;\n\n  replacementArray.push({\n    placeholder: `{{${key}}}`,\n    value: safeValue\n  });\n}\n\nfunction addLinePlaceholderVariants(replacements, replacementArray, base, index, value) {\n  const safeValue = value === undefined || value === null ? '' : String(value);\n  const twoDigit = String(index).padStart(2, '0');\n\n  addReplacement(replacements, replacementArray, `${base}${twoDigit}`, safeValue);\n  addReplacement(replacements, replacementArray, `${base}${index}`, safeValue);\n  addReplacement(replacements, replacementArray, `${base} ${index}`, safeValue);\n}\n\nfunction getPdfDateFromRow(row) {\n  return (\n    row.dateFromPdf ||\n    row.fileDate ||\n    row.date ||\n    row.matchedFile?.fileDate ||\n    null\n  );\n}\n\nfunction getSheetDateInformative(row) {\n  return row.sheetDateInformative ?? row.DATE ?? null;\n}\n\nfunction buildRowsToMark(rows, status, reason) {\n  return rows.map(row => ({\n    rowIndex: row.rowIndex,\n    PO: row.PO || null,\n    DATE: getSheetDateInformative(row),\n    sheetDateInformative: getSheetDateInformative(row),\n    status,\n    reason,\n    originalRow: row.originalRow || row\n  }));\n}\n\nconst invoiceGroup = $json;\n\nif (invoiceGroup.outputType !== 'invoice_ready_group') {\n  return [\n    {\n      json: {\n        ...invoiceGroup,\n        outputType: 'invoice_template_skipped',\n        groupStatus: 'Skipped',\n        reason: 'El item recibido no es invoice_ready_group'\n      }\n    }\n  ];\n}\n\nconst rows = Array.isArray(invoiceGroup.rows) ? invoiceGroup.rows : [];\nconst files = Array.isArray(invoiceGroup.files) ? invoiceGroup.files : [];\n\nif (rows.length === 0) {\n  return [\n    {\n      json: {\n        ...invoiceGroup,\n        outputType: 'invoice_template_group_error',\n        groupStatus: 'Error',\n        errorType: 'EMPTY_GROUP',\n        reason: 'El grupo no tiene filas para preparar la factura',\n        rowsToMark: []\n      }\n    }\n  ];\n}\n\nconst invoiceBaseRow = getInvoiceBaseRow(rows);\n\nconst invoiceBaseAlt = extractAltFromRow(invoiceBaseRow);\nconst invoiceNumber = `COMP-${invoiceBaseAlt}`;\nconst filename = `FACT LB - ${invoiceBaseAlt}`;\nconst invoiceDate = getInvoiceDateFromBillingWeek(invoiceGroup, files, rows, invoiceBaseRow);\nconst invoiceDateSource = 'billing_week_saturday_from_filename';\n\nconst dateMismatchRows = [];\n\nconst priceAlerts = [];\nconst singleDestinationRows = [];\nconst multiDestinationRows = [];\n\nconst lineItems = rows.map((row, index) => {\n  const amountAnalysis = analyzeAmount(row.AMOUNT);\n  const destinationCount = countDestinations(row.DROP);\n  const isMultiDestination = destinationCount > 1;\n\n  const lineItem = {\n    lineNumber: index + 1,\n\n    PO: buildPoText(row),\n    PO_FULL: normalizeText(row.PO),\n    TRIP: buildTripText(row),\n    // DATE de línea viene del PDF. DATE del Sheet queda solo informativo.\n    DATE: formatDateUS(getPdfDateFromRow(row)),\n    pdfDate: formatDateUS(getPdfDateFromRow(row)),\n    sheetDateInformative: getSheetDateInformative(row),\n\n    amount: amountAnalysis.valid ? amountAnalysis.amount : null,\n    amountFormatted: amountAnalysis.valid ? formatMoney(amountAnalysis.amount) : '',\n\n    amountIsValid: amountAnalysis.valid,\n    amountAlertReason: amountAnalysis.reason,\n    originalAmountValue: amountAnalysis.originalValue,\n\n    destinationCount,\n    tripType: isMultiDestination ? 'multi_destination' : 'single_destination',\n\n    hasDateMismatch: false,\n    dateMismatchWarning: null,\n    dateRelationStatus: 'NOT_EVALUATED_SHEET_DATE_IGNORED',\n    dateRelationFacturable: true,\n    dateRelationMessage: 'DATE del Sheet conservado solo como dato informativo; no se valida ni bloquea.',\n    dateRelationPoWeekGroup: null,\n    dateRelationSheetWeekGroup: null,\n\n    matchedFile: row.matchedFile || null,\n    originalRow: row\n  };\n\n  if (!amountAnalysis.valid) {\n    priceAlerts.push({\n      lineNumber: index + 1,\n      rowIndex: row.rowIndex,\n      PO: row.PO || null,\n      DATE: getSheetDateInformative(row),\n      DROP: row.DROP || null,\n      AMOUNT: row.AMOUNT ?? null,\n      reason: amountAnalysis.reason,\n      originalRow: row\n    });\n  }\n\n  if (isMultiDestination) {\n    multiDestinationRows.push(lineItem);\n  } else {\n    singleDestinationRows.push(lineItem);\n  }\n\n  return lineItem;\n});\n\nconst groupErrors = [];\n\n// DATE del Sheet ya no genera alertas ni bloqueos.\n// La semana de facturación depende únicamente del nombre del PDF.\n\nif (priceAlerts.length > 0) {\n  groupErrors.push({\n    errorType: 'PRICE_ALERT',\n    message: 'Una o más filas no tienen un valor válido en AMOUNT.',\n    totalRows: priceAlerts.length,\n    rows: priceAlerts\n  });\n}\n\nif (groupErrors.length > 0) {\n  const rowsToMark = buildRowsToMark(\n    rows,\n    'Error',\n    groupErrors.map(error => error.errorType).join(', ')\n  );\n\n  return [\n    {\n      json: {\n        outputType: 'invoice_template_group_error',\n        groupStatus: 'Error',\n\n        invoiceGroupKey: invoiceGroup.invoiceGroupKey,\n        weekGroup: invoiceGroup.weekGroup,\n        weekStart: invoiceGroup.weekStart,\n        weekEnd: invoiceGroup.weekEnd,\n        part: invoiceGroup.part,\n        totalParts: invoiceGroup.totalParts,\n        maxPerInvoice: invoiceGroup.maxPerInvoice,\n\n        invoiceNumber,\n        filename,\n        invoiceDate,\n        invoiceDateSource,\n\n        invoiceBaseAlt,\n        invoiceBasePO: invoiceBaseRow.PO || null,\n        invoiceBaseRowIndex: invoiceBaseRow.rowIndex ?? null,\n        invoiceBaseDateFromPdf: getPdfDateFromRow(invoiceBaseRow),\n        invoiceBaseDateFromPO: invoiceBaseRow.dateFromPO || null,\n        invoiceBaseDateFromSheet: getSheetDateInformative(invoiceBaseRow),\n\n        hasGroupErrors: true,\n        totalGroupErrors: groupErrors.length,\n        groupErrors,\n\n        hasDateMismatchAlert: false,\n        totalDateMismatchRows: 0,\n        dateMismatchRows,\n\n        hasPriceAlerts: priceAlerts.length > 0,\n        totalPriceAlerts: priceAlerts.length,\n        priceAlerts,\n\n        message: 'Este grupo no debe generar factura. Debe marcarse como Error en el reporte de Sheets.',\n\n        rowsToMark,\n        rows,\n        files,\n        lineItems\n      }\n    }\n  ];\n}\n\nconst unit1 = singleDestinationRows.length;\nconst unit2 = multiDestinationRows.length;\n\nconst sub1 = singleDestinationRows.reduce((sum, row) => {\n  return sum + (Number.isFinite(row.amount) ? row.amount : 0);\n}, 0);\n\nconst sub2 = multiDestinationRows.reduce((sum, row) => {\n  return sum + (Number.isFinite(row.amount) ? row.amount : 0);\n}, 0);\n\nconst rate1 = unit1 > 0 ? sub1 / unit1 : 0;\nconst rate2 = unit2 > 0 ? sub2 / unit2 : 0;\n\nconst total = sub1 + sub2;\n\nconst replacements = {};\nconst replacementArray = [];\n\naddReplacement(replacements, replacementArray, 'INVOICE', invoiceNumber);\naddReplacement(replacements, replacementArray, 'DATE', invoiceDate);\n\naddReplacement(replacements, replacementArray, 'RATE1', unit1 > 0 ? formatMoney(rate1) : '');\naddReplacement(replacements, replacementArray, 'RATE2', unit2 > 0 ? formatMoney(rate2) : '');\n\naddReplacement(replacements, replacementArray, 'UNIT1', unit1 > 0 ? unit1 : '');\naddReplacement(replacements, replacementArray, 'UNIT2', unit2 > 0 ? unit2 : '');\n\naddReplacement(replacements, replacementArray, 'SUB1', unit1 > 0 ? formatMoney(sub1) : '');\naddReplacement(replacements, replacementArray, 'SUB2', unit2 > 0 ? formatMoney(sub2) : '');\n\naddReplacement(replacements, replacementArray, 'TOTAL', formatMoney(total));\n\naddReplacement(replacements, replacementArray, 'WEEK_START', formatDateUS(invoiceGroup.weekStart));\naddReplacement(replacements, replacementArray, 'WEEK_END', formatDateUS(invoiceGroup.weekEnd));\naddReplacement(replacements, replacementArray, 'BROKER', invoiceBaseRow.BROKER || '');\naddReplacement(replacements, replacementArray, 'TOTAL_LOADS', rows.length);\naddReplacement(replacements, replacementArray, 'TOTAL_FILES', files.length);\n\nfor (let i = 1; i <= 12; i++) {\n  const row = rows[i - 1];\n\n  const po = row ? buildPoText(row) : '';\n  const trip = row ? buildTripText(row) : '';\n\n  addLinePlaceholderVariants(replacements, replacementArray, 'PO', i, po);\n  addLinePlaceholderVariants(replacements, replacementArray, 'TRIP', i, trip);\n}\n\nconst rowsToMark = buildRowsToMark(rows, 'Si', 'Factura preparada correctamente');\n\nreturn [\n  {\n    json: {\n      outputType: 'invoice_template_data',\n      groupStatus: 'Ready',\n\n      invoiceGroupKey: invoiceGroup.invoiceGroupKey,\n      weekGroup: invoiceGroup.weekGroup,\n      weekStart: invoiceGroup.weekStart,\n      weekEnd: invoiceGroup.weekEnd,\n      part: invoiceGroup.part,\n      totalParts: invoiceGroup.totalParts,\n      maxPerInvoice: invoiceGroup.maxPerInvoice,\n\n      invoiceNumber,\n      filename,\n      invoiceDate,\n      invoiceDateSource,\n\n      invoiceBaseAlt,\n      invoiceBasePO: invoiceBaseRow.PO || null,\n      invoiceBaseRowIndex: invoiceBaseRow.rowIndex ?? null,\n      invoiceBaseDateFromPdf: getPdfDateFromRow(invoiceBaseRow),\n      invoiceBaseDateFromPO: invoiceBaseRow.dateFromPO || null,\n      invoiceBaseDateFromSheet: getSheetDateInformative(invoiceBaseRow),\n\n      firstRowAlt: invoiceBaseAlt,\n      firstRowPO: invoiceBaseRow.PO || null,\n      firstRowDateFromPdf: getPdfDateFromRow(invoiceBaseRow),\n      firstRowDateFromPO: invoiceBaseRow.dateFromPO || null,\n      firstRowDateFromSheet: getSheetDateInformative(invoiceBaseRow),\n\n      hasGroupErrors: false,\n      totalGroupErrors: 0,\n      groupErrors: [],\n\n      hasPriceAlerts: false,\n      totalPriceAlerts: 0,\n      priceAlerts: [],\n\n      hasDateMismatchAlert: false,\n      totalDateMismatchRows: 0,\n      dateMismatchRows,\n\n      hasOnlySingleDestinationTrips: unit1 > 0 && unit2 === 0,\n      hasOnlyMultiDestinationTrips: unit1 === 0 && unit2 > 0,\n      hasMixedTripTypes: unit1 > 0 && unit2 > 0,\n\n      unit1,\n      unit2,\n      sub1,\n      sub2,\n      rate1,\n      rate2,\n      total,\n\n      unit1Formatted: unit1 > 0 ? String(unit1) : '',\n      unit2Formatted: unit2 > 0 ? String(unit2) : '',\n      sub1Formatted: unit1 > 0 ? formatMoney(sub1) : '',\n      sub2Formatted: unit2 > 0 ? formatMoney(sub2) : '',\n      rate1Formatted: unit1 > 0 ? formatMoney(rate1) : '',\n      rate2Formatted: unit2 > 0 ? formatMoney(rate2) : '',\n      totalFormatted: formatMoney(total),\n\n      totalRows: rows.length,\n      totalFiles: files.length,\n\n      lineItems,\n      singleDestinationRows,\n      multiDestinationRows,\n\n      rowsToMark,\n      rows,\n      files,\n\n      replacements,\n      replacementArray\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        112
+      ],
+      "id": "a87ea67e-3a5e-4eaa-9b79-a675bb914c27",
+      "name": "Prep Dat Fact"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.outputType }}",
+                    "rightValue": "invoice_template_data",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9e5c005d-53ae-44bf-994a-895bff83d629"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        432,
+        112
+      ],
+      "id": "00cad9dd-6d01-455f-bf72-515ac0398217",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7c60afb5-455a-4553-9f5a-fa38edaebe6b",
+      "name": "Loop Facturas listas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoice = $json;\n\nconst lineItems = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];\n\nconst output = [];\n\nfor (const line of lineItems) {\n  const file = line.matchedFile;\n\n  if (!file?.id) {\n    continue;\n  }\n\n  output.push({\n    json: {\n      invoiceGroupKey: invoice.invoiceGroupKey,\n      invoiceNumber: invoice.invoiceNumber,\n      invoiceFilename: invoice.filename,\n\n      sourceType: 'related_pdf',\n      mergeOrder: line.lineNumber,\n\n      fileId: file.id,\n      fileName: file.name,\n\n      lineNumber: line.lineNumber,\n      PO: line.PO_FULL || line.PO,\n      TRIP: line.TRIP,\n\n      // DATE operativo viene del PDF. DATE del Sheet queda solo como metadata informativa.\n      DATE: line.DATE,\n      pdfDate: line.pdfDate,\n      sheetDateInformative: line.sheetDateInformative,\n    }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        352
+      ],
+      "id": "65b46a7d-9dc7-4a67-b77d-6cce1b6e807c",
+      "name": "Preparar PDFs"
+    },
+    {
+      "parameters": {
+        "outputFileName": "={{ $('Prep Dat Fact').item.json.filename }}"
+      },
+      "type": "@prokodo/n8n-nodes-pdf-toolkit.prokodoPdfToolkit",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        336
+      ],
+      "id": "5745177d-d303-4dc8-a7d0-257ff65712bd",
+      "name": "PDF Toolkit"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?gid=2144758921",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2144758921,
+          "mode": "list",
+          "cachedResultName": "Facturador",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=2144758921"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "PO": "={{ $json.lookupPO }}",
+            "factura hecha": "Si"
+          },
+          "matchingColumns": [
+            "PO"
+          ],
+          "schema": [
+            {
+              "id": "TRUCK",
+              "displayName": "TRUCK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TRIP´#",
+              "displayName": "TRIP´#",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DRIVER",
+              "displayName": "DRIVER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DATE",
+              "displayName": "DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "BROKER",
+              "displayName": "BROKER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PO",
+              "displayName": "PO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "PICK UP",
+              "displayName": "PICK UP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DROP",
+              "displayName": "DROP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "BILL",
+              "displayName": "BILL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RC",
+              "displayName": "RC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DI",
+              "displayName": "DI",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "POD",
+              "displayName": "POD",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AMOUNT",
+              "displayName": "AMOUNT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "factura hecha",
+              "displayName": "factura hecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rate",
+              "displayName": "Rate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lumper ",
+              "displayName": "Lumper ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "#AMMOUNT",
+              "displayName": "#AMMOUNT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "#RATE",
+              "displayName": "#RATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "#LUMPER",
+              "displayName": "#LUMPER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2368,
+        336
+      ],
+      "id": "d83230a2-dec1-41a4-bfbe-842af1f76702",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KKvglKq0T4yB5y8t",
+          "name": "Google Sheets account (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoice = $('Prep Dat Fact').item.json;\nconst upload = $json;\n\nconst rowsToMark = Array.isArray(invoice.rowsToMark)\n  ? invoice.rowsToMark\n  : [];\n\nconst finalFileId = upload.id || upload.fileId || null;\nconst finalFileName = upload.name || invoice.filename || null;\nconst finalFileUrl =\n  upload.webViewLink ||\n  upload.webContentLink ||\n  (finalFileId ? `https://drive.google.com/file/d/${finalFileId}/view` : null);\n\nreturn rowsToMark.map((row) => {\n  const originalRow = row.originalRow || {};\n\n  return {\n    json: {\n      // Este PO debe coincidir con el PO de la hoja.\n      // Uso primero originalRow.PO porque conserva espacios dobles si existieran.\n      lookupPO: originalRow.PO || row.PO,\n\n      // DATE del Sheet se conserva solo como dato informativo.\n      DATE: originalRow.DATE || row.sheetDateInformative || row.DATE,\n      sheetDateInformative: originalRow.DATE || row.sheetDateInformative || row.DATE,\n      BROKER: originalRow.BROKER || null,\n      PO: originalRow.PO || row.PO,\n\n      // Campo principal a actualizar\n      factura_hecha: row.status || 'Si',\n\n      // Metadata útil para control interno\n      invoiceNumber: invoice.invoiceNumber,\n      invoiceFilename: invoice.filename,\n      invoiceGroupKey: invoice.invoiceGroupKey,\n      finalFileId,\n      finalFileName,\n      finalFileUrl,\n\n      updateReason: row.reason || 'Factura generada correctamente'\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        336
+      ],
+      "id": "8c72d061-e378-4312-a690-429c4cd9b9be",
+      "name": "Sheet update"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Extraer Facturas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Facturas": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All PDFs": {
+      "main": [
+        [
+          {
+            "node": "Agrupar por semana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Preparar facturas listas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy file": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "PDF Toolkit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a document": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar facturas listas": {
+      "main": [
+        [
+          {
+            "node": "Get All PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar por semana": {
+      "main": [
+        [
+          {
+            "node": "Cruzar Facturas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cruzar Facturas": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Facturas listas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Dat Fact": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Copy file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Facturas listas": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prep Dat Fact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar PDFs": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Toolkit": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Loop Facturas listas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheet update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet update": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5089dc08-e5e3-48ec-b0ee-e3b76c365c3e",
+  "meta": {},
+  "id": "demo-freight-invoice-automation",
+  "tags": []
+}

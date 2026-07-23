@@ -1,0 +1,952 @@
+{
+  "name": "FUB Pre-Approved Lead Extractor (Portfolio Demo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        -880
+      ],
+      "id": "7f98635a-ceb7-424b-be28-ee91e393ebf4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "id,name,stage,assignedTo,tags,lastActivity"
+            },
+            {
+              "name": "smartListId",
+              "value": "4314"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body._metadata.nextLink }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body._metadata.nextLink }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1024,
+        -880
+      ],
+      "id": "3eab86cd-dbce-4806-86fa-94fbf420594d",
+      "name": "HTTP Los Angeles",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bed1dca3-a2dd-4226-8d5e-e624b75a2d5b",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "7285f3a0-064f-49d1-b065-121b9814f01d",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "1f84aa57-d49a-42a6-9cea-bfea6f107ceb",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "804ef0df-b985-46d3-b520-1d45c2b89f06",
+              "name": "Assigned To",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "f38341c3-1c8b-41c1-9076-e35c85906aa2",
+              "name": "Tags",
+              "value": "={{ $json.people.tags.join(', ') }}",
+              "type": "string"
+            },
+            {
+              "id": "9e0038a6-0c8b-4f6e-8951-750251f3aa07",
+              "name": "Last Activity",
+              "value": "={{ $json.people.lastActivity }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        -1072
+      ],
+      "id": "8dcf443f-6626-4943-ad86-5ae3041e6f4a",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -1072
+      ],
+      "id": "ae7f526e-2a19-4b87-bc3f-d8b045078f39",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -880
+      ],
+      "id": "f7a2ff48-6844-4e2c-83e7-25767a44650a",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -688
+      ],
+      "id": "7ce8d60f-3ca0-45e9-9a14-598ddcd1129e",
+      "name": "Split Out3"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -80,
+        -896
+      ],
+      "id": "b755ce5e-f11c-47fd-b216-931065524055",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const requiredTag = 'Zillow zhl Status: Pre-approved';\nconst office = 'Orange County';\n\nreturn items\n  .filter(item => {\n    const tags = item.json.Tags || '';\n\n    return tags\n      .split(',')\n      .map(tag => tag.trim())\n      .includes(requiredTag);\n  })\n  .map(item => ({\n    json: {\n      ...item.json,\n      \"Office:\": office\n    }\n  }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -1072
+      ],
+      "id": "48fd915f-b785-4ebf-bb3f-dc91b2c9cfd8",
+      "name": "Orange Pre-Approved"
+    },
+    {
+      "parameters": {
+        "jsCode": "const requiredTag = 'Zillow zhl Status: Pre-approved';\nconst office = 'Los Angeles';\n\nreturn items\n  .filter(item => {\n    const tags = item.json.Tags || '';\n\n    return tags\n      .split(',')\n      .map(tag => tag.trim())\n      .includes(requiredTag);\n  })\n  .map(item => ({\n    json: {\n      ...item.json,\n      \"Office:\": office\n    }\n  }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -880
+      ],
+      "id": "15f21603-16a9-41e9-b18e-367b8a52bcc5",
+      "name": "Los Angeles Pre-Approved"
+    },
+    {
+      "parameters": {
+        "jsCode": "const requiredTag = 'Zillow zhl Status: Pre-approved';\nconst office = 'Riverside';\n\nreturn items\n  .filter(item => {\n    const tags = item.json.Tags || '';\n\n    return tags\n      .split(',')\n      .map(tag => tag.trim())\n      .includes(requiredTag);\n  })\n  .map(item => ({\n    json: {\n      ...item.json,\n      \"Office:\": office\n    }\n  }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -688
+      ],
+      "id": "633a6f4a-927e-4481-a6ee-e1fef1e1c3c7",
+      "name": "Riverside Pre-Approved"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_TRACKING_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_TRACKING_SPREADSHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json.ID }}",
+            "Name": "={{ $json.Name }}",
+            "Assigned to": "={{ $json[\"Assigned To\"] }}",
+            "Office": "={{ $json[\"Office:\"] }}",
+            "Stage": "={{ $json.Stage }}",
+            "FUB Link": "={{ $json['FUB Link'] }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Assigned to",
+              "displayName": "Assigned to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Office",
+              "displayName": "Office",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Stage",
+              "displayName": "Stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Communication",
+              "displayName": "Last Communication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Last Task",
+              "displayName": "Last Task",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Completed",
+              "displayName": "Completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "New / Old",
+              "displayName": "New / Old",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FUB Link",
+              "displayName": "FUB Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Review Status",
+              "displayName": "Review Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "locationDefine": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        -864
+      ],
+      "id": "0ed0c61d-5fe5-4729-9da3-94e35311f69d",
+      "name": "Update new Data",
+      "credentials": {
+        "googleApi": {
+          "id": "LMwyzdfQvjvMq9vi",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "smartListId",
+              "value": "4313"
+            },
+            {
+              "name": "fields",
+              "value": "id,name,stage,assignedTo,tags,lastActivity"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body._metadata.nextLink }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body._metadata.nextLink }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1024,
+        -688
+      ],
+      "id": "ea7635ad-7440-4905-95ac-6844c19798f5",
+      "name": "HTTP Riverside",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "personId",
+              "value": "={{ $json.ID }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body._metadata.nextLink }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body._metadata.nextLink }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        32,
+        -672
+      ],
+      "id": "e8a34736-19db-4cde-8712-f3a314259709",
+      "name": "HTTP Riverside1",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "ID",
+              "field2": "tasks[0].personId"
+            }
+          ]
+        },
+        "joinMode": "enrichInput1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        288,
+        -864
+      ],
+      "id": "052d83ad-d77a-4a5f-b034-83a5c472c34f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bed1dca3-a2dd-4226-8d5e-e624b75a2d5b",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "7285f3a0-064f-49d1-b065-121b9814f01d",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "1f84aa57-d49a-42a6-9cea-bfea6f107ceb",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "804ef0df-b985-46d3-b520-1d45c2b89f06",
+              "name": "Assigned To",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "f38341c3-1c8b-41c1-9076-e35c85906aa2",
+              "name": "Tags",
+              "value": "={{ $json.people.tags.join(', ') }}",
+              "type": "string"
+            },
+            {
+              "id": "9e0038a6-0c8b-4f6e-8951-750251f3aa07",
+              "name": "Last Activity",
+              "value": "={{ $json.people.lastActivity }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        -880
+      ],
+      "id": "468dacc1-2ee2-4765-9e7f-45e4b22dabf9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bed1dca3-a2dd-4226-8d5e-e624b75a2d5b",
+              "name": "ID",
+              "value": "={{ $json.people.id }}",
+              "type": "number"
+            },
+            {
+              "id": "7285f3a0-064f-49d1-b065-121b9814f01d",
+              "name": "Name",
+              "value": "={{ $json.people.name }}",
+              "type": "string"
+            },
+            {
+              "id": "1f84aa57-d49a-42a6-9cea-bfea6f107ceb",
+              "name": "Stage",
+              "value": "={{ $json.people.stage }}",
+              "type": "string"
+            },
+            {
+              "id": "804ef0df-b985-46d3-b520-1d45c2b89f06",
+              "name": "Assigned To",
+              "value": "={{ $json.people.assignedTo }}",
+              "type": "string"
+            },
+            {
+              "id": "f38341c3-1c8b-41c1-9076-e35c85906aa2",
+              "name": "Tags",
+              "value": "={{ $json.people.tags.join(', ') }}",
+              "type": "string"
+            },
+            {
+              "id": "9e0038a6-0c8b-4f6e-8951-750251f3aa07",
+              "name": "Last Activity",
+              "value": "={{ $json.people.lastActivity }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        -688
+      ],
+      "id": "d78254a2-808b-47bd-82bb-b68b6c0fb861",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -864
+      ],
+      "id": "9d474c52-ca90-4e7b-817d-03d59067f8db",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "https://api.followupboss.com/v1/people",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "id,name,stage,assignedTo,tags,lastActivity"
+            },
+            {
+              "name": "smartListId",
+              "value": "4315"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "X-System",
+              "value": "YourCompanySystem"
+            },
+            {
+              "name": "X-System-Key",
+              "value": "={{ $env.FUB_X_SYSTEM_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body._metadata.nextLink }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body._metadata.nextLink }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1024,
+        -1072
+      ],
+      "id": "fd6e0440-c5d7-4a5e-946a-65d0eafac9ac",
+      "name": "HTTP Orange",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "h8WATUi3CC2IOX4D",
+          "name": "FUB API Key (demo)"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Los Angeles",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Riverside",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Orange",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Los Angeles": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Orange Pre-Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "HTTP Riverside1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orange Pre-Approved": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Los Angeles Pre-Approved": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Riverside Pre-Approved": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Update new Data": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Riverside": {
+      "main": [
+        [
+          {
+            "node": "Split Out3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Riverside1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Los Angeles Pre-Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Riverside Pre-Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update new Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Orange": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4ca85144-a341-4ff0-b00c-0e1f2c097b84",
+  "meta": {},
+  "id": "demo-fub-zhl-extractor",
+  "tags": []
+}
