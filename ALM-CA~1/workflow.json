@@ -1,0 +1,1171 @@
+{
+  "name": "ALM Call Transcription & Quality Scoring (Portfolio Demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      tab: 'LOS ANGELES',\n      range: 'A1:W1500',\n    },\n  },\n  {\n    json: {\n      tab: 'ORANGE COUNTY',\n      range: 'A1:W1500',\n    },\n  },\n  {\n    json: {\n      tab: 'RIVERSIDE',\n      range: 'A1:W1500',\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        560
+      ],
+      "id": "7f7abe5c-1cf1-43be-96c3-46d65c407ae7",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        560
+      ],
+      "id": "28a28df9-3920-4ccf-bf50-803047614ac8",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_CALL_TRACKING_SHEET_ID/values:batchGet?ranges='LOS ANGELES'!A1:W5000&ranges='ORANGE COUNTY'!A1:W5000&ranges='RIVERSIDE'!A1:W5000&majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2272,
+        816
+      ],
+      "id": "0bbd17d2-d86e-470b-a540-7110febd114f",
+      "name": "Get Rows",
+      "retryOnFail": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "10uF4KjfHzrvjF8k",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Tu HTTP Request está devolviendo la respuesta dentro de \"body\"\nconst response = input.body || input;\n\nconst valueRanges = response.valueRanges || [];\n\nconst COL = {\n  SCORE: 0,\n  QUALIFIED: 1,\n  AGENT: 2,\n  OFFICE: 3,\n  DATE: 4,\n  LEAD: 5,\n  PHONE: 6,\n  RECORDING: 7,\n  DURATION: 8,\n  COMMENTS: 21,\n  STATUS: 22,\n};\n\nconst eligible = [];\n\nfunction cell(row, index) {\n  return String(row?.[index] ?? '').trim();\n}\n\nfunction getTabName(range) {\n  // Ejemplos:\n  // \"'LOS ANGELES'!A1:W1218\"\n  // \"RIVERSIDE!A1:W651\"\n  return String(range || '')\n    .split('!')[0]\n    .replace(/^'/, '')\n    .replace(/'$/, '')\n    .trim();\n}\n\nfor (const valueRange of valueRanges) {\n  const tab = getTabName(valueRange.range);\n  const values = valueRange.values || [];\n\n  // values[0] son headers. La data real empieza en la fila 2.\n  for (let i = 1; i < values.length; i++) {\n    const row = values[i];\n    const rowNumber = i + 1;\n\n    const score = cell(row, COL.SCORE);\n    const qualified = cell(row, COL.QUALIFIED).toUpperCase();\n    const agent = cell(row, COL.AGENT);\n    const office = cell(row, COL.OFFICE);\n    const date = cell(row, COL.DATE);\n    const lead = cell(row, COL.LEAD);\n    const phone = cell(row, COL.PHONE);\n    const recordingUrl = cell(row, COL.RECORDING);\n    const existingDuration = cell(row, COL.DURATION);\n    const existingComment = cell(row, COL.COMMENTS);\n    const status = cell(row, COL.STATUS);\n\n    const isNewUnprocessed =\n      score === '0' &&\n      qualified === 'NO' &&\n      recordingUrl.startsWith('http') &&\n      status === '';\n\n    const isPartialCompleted =\n      status === 'Viktor Completed' &&\n      recordingUrl.startsWith('http') &&\n      (!agent || !existingDuration || !existingComment);\n\n    if (!isNewUnprocessed && !isPartialCompleted) {\n      continue;\n    }\n\n    eligible.push({\n      json: {\n        tab,\n        rowNumber,\n        score,\n        qualified,\n        agent,\n        office,\n        date,\n        lead,\n        phone,\n        recordingUrl,\n        existingDuration,\n        existingComment,\n        existingStatus: status,\n        eligibilityReason: isNewUnprocessed\n          ? 'new_unprocessed_row'\n          : 'partial_completed_row_needs_patch',\n      },\n    });\n  }\n}\n\nreturn eligible;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        816
+      ],
+      "id": "3d192768-e1dc-4f58-bdb3-6cd2244b2b5d",
+      "name": "Parse Rows + Find Elegible"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.recordingUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "audio"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3040,
+        944
+      ],
+      "id": "df8d92d6-79db-4099-a6b3-e7de98657178",
+      "name": "Get Audio",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction formatDuration(totalSeconds) {\n  const seconds = Math.round(totalSeconds);\n\n  const h = Math.floor(seconds / 3600);\n  const m = Math.floor((seconds % 3600) / 60);\n  const s = seconds % 60;\n\n  if (h > 0) {\n    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;\n  }\n\n  return `${m}:${String(s).padStart(2, '0')}`;\n}\n\nfunction readWavDuration(buffer) {\n  const riff = buffer.toString('ascii', 0, 4);\n  const wave = buffer.toString('ascii', 8, 12);\n\n  if (riff !== 'RIFF' || wave !== 'WAVE') {\n    throw new Error('Audio file is not a valid WAV file.');\n  }\n\n  let offset = 12;\n  let byteRate = null;\n  let dataSize = null;\n\n  while (offset + 8 <= buffer.length) {\n    const chunkId = buffer.toString('ascii', offset, offset + 4);\n    const chunkSize = buffer.readUInt32LE(offset + 4);\n    const chunkDataStart = offset + 8;\n\n    if (chunkId === 'fmt ') {\n      byteRate = buffer.readUInt32LE(chunkDataStart + 8);\n    }\n\n    if (chunkId === 'data') {\n      dataSize = chunkSize;\n      break;\n    }\n\n    offset = chunkDataStart + chunkSize;\n\n    // WAV chunks are aligned to even bytes\n    if (offset % 2 !== 0) {\n      offset += 1;\n    }\n  }\n\n  if (!byteRate || !dataSize) {\n    throw new Error('Could not read WAV duration from audio header.');\n  }\n\n  return dataSize / byteRate;\n}\n\nconst output = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n\n  if (!item.binary?.audio) {\n    throw new Error(`Item ${i} does not contain binary.audio`);\n  }\n\n  const audioBuffer = await this.helpers.getBinaryDataBuffer(i, 'audio');\n  const durationSeconds = readWavDuration(audioBuffer);\n  const durationFormatted = formatDuration(durationSeconds);\n\n  output.push({\n    json: {\n      ...item.json,\n      durationSeconds,\n      durationFormatted,\n      durationForSheet: durationFormatted,\n      audioFileName: item.binary.audio.fileName || null,\n      audioMimeType: item.binary.audio.mimeType || null,\n      audioFileSize: item.binary.audio.fileSize || null,\n    },\n    binary: item.binary,\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3248,
+        944
+      ],
+      "id": "ef5ea053-0d10-4fcc-9bbc-53697a7ed548",
+      "name": "Extract Duration"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst MAX_DIRECT_FILE_BYTES = 20 * 1024 * 1024; // Safe margin below OpenAI 25 MB upload limit\nconst DIRECT_DURATION_SECONDS = 20 * 60; // 20 minutes\nconst PREFERRED_SEGMENT_SECONDS = 10 * 60; // 10 minutes\nconst OVERLAP_SECONDS = 10; // Helps avoid cutting speech at exact segment boundary\nconst MIN_SEGMENT_SECONDS = 1;\n\nfunction parseFileSizeBytes(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n\n  const text = String(value || '').trim();\n  if (!text) return 0;\n\n  const match = text.match(/^([\\d.]+)\\s*(B|KB|MB|GB|KiB|MiB|GiB)?$/i);\n  if (!match) return 0;\n\n  const number = Number(match[1]);\n  const unit = (match[2] || 'B').toUpperCase();\n\n  const factor = {\n    B: 1,\n    KB: 1000,\n    MB: 1000 * 1000,\n    GB: 1000 * 1000 * 1000,\n    KIB: 1024,\n    MIB: 1024 * 1024,\n    GIB: 1024 * 1024 * 1024,\n  }[unit] || 1;\n\n  return Math.round(number * factor);\n}\n\nfunction parseWav(buffer) {\n  const riff = buffer.toString('ascii', 0, 4);\n  const wave = buffer.toString('ascii', 8, 12);\n\n  if (riff !== 'RIFF' || wave !== 'WAVE') {\n    throw new Error('Audio segmentation currently expects a valid WAV file.');\n  }\n\n  let offset = 12;\n  let fmtData = null;\n  let dataStart = null;\n  let dataSize = null;\n\n  while (offset + 8 <= buffer.length) {\n    const chunkId = buffer.toString('ascii', offset, offset + 4);\n    const chunkSize = buffer.readUInt32LE(offset + 4);\n    const chunkDataStart = offset + 8;\n\n    if (chunkId === 'fmt ') {\n      fmtData = Buffer.from(buffer.subarray(chunkDataStart, chunkDataStart + chunkSize));\n    }\n\n    if (chunkId === 'data') {\n      dataStart = chunkDataStart;\n      dataSize = chunkSize;\n      break;\n    }\n\n    offset = chunkDataStart + chunkSize;\n    if (offset % 2 !== 0) offset += 1;\n  }\n\n  if (!fmtData || dataStart === null || dataSize === null) {\n    throw new Error('Could not find required WAV fmt/data chunks.');\n  }\n\n  if (fmtData.length < 16) {\n    throw new Error('Invalid WAV fmt chunk.');\n  }\n\n  const audioFormat = fmtData.readUInt16LE(0);\n  const channels = fmtData.readUInt16LE(2);\n  const sampleRate = fmtData.readUInt32LE(4);\n  const byteRate = fmtData.readUInt32LE(8);\n  const blockAlign = fmtData.readUInt16LE(12);\n  const bitsPerSample = fmtData.readUInt16LE(14);\n\n  if (!byteRate || !blockAlign) {\n    throw new Error('Invalid WAV byteRate/blockAlign values.');\n  }\n\n  const durationSeconds = dataSize / byteRate;\n\n  return {\n    fmtData,\n    dataStart,\n    dataSize,\n    audioFormat,\n    channels,\n    sampleRate,\n    byteRate,\n    blockAlign,\n    bitsPerSample,\n    durationSeconds,\n  };\n}\n\nfunction createWavBuffer(fmtData, dataSlice) {\n  let slice = dataSlice;\n\n  // WAV chunks are even-byte aligned. Usually already true because blockAlign is even.\n  if (slice.length % 2 !== 0) {\n    slice = Buffer.concat([slice, Buffer.from([0])]);\n  }\n\n  const riffSize = 4 + (8 + fmtData.length) + (8 + slice.length);\n\n  const riffHeader = Buffer.alloc(12);\n  riffHeader.write('RIFF', 0, 4, 'ascii');\n  riffHeader.writeUInt32LE(riffSize, 4);\n  riffHeader.write('WAVE', 8, 4, 'ascii');\n\n  const fmtHeader = Buffer.alloc(8);\n  fmtHeader.write('fmt ', 0, 4, 'ascii');\n  fmtHeader.writeUInt32LE(fmtData.length, 4);\n\n  const dataHeader = Buffer.alloc(8);\n  dataHeader.write('data', 0, 4, 'ascii');\n  dataHeader.writeUInt32LE(slice.length, 4);\n\n  return Buffer.concat([riffHeader, fmtHeader, fmtData, dataHeader, slice]);\n}\n\nfunction safeName(value) {\n  return String(value || '')\n    .replace(/[^A-Za-z0-9_-]+/g, '_')\n    .replace(/^_+|_+$/g, '')\n    .slice(0, 80);\n}\n\nconst output = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n\n  if (!item.binary?.audio) {\n    throw new Error(`Item ${i} does not contain binary.audio`);\n  }\n\n  const audioBuffer = await this.helpers.getBinaryDataBuffer(i, 'audio');\n  const wav = parseWav(audioBuffer);\n\n  const fileSizeBytes = parseFileSizeBytes(item.binary.audio.fileSize) || audioBuffer.length;\n  const durationSeconds = Number(item.json.durationSeconds || wav.durationSeconds || 0);\n\n  const originalAudioId = safeName(`${item.json.tab || 'tab'}_${item.json.rowNumber || i + 1}`);\n\n  const requiresSegmentation =\n    durationSeconds > DIRECT_DURATION_SECONDS || fileSizeBytes > MAX_DIRECT_FILE_BYTES;\n\n  const maxSecondsBySize = Math.max(\n    MIN_SEGMENT_SECONDS,\n    Math.floor((MAX_DIRECT_FILE_BYTES - 1024) / wav.byteRate)\n  );\n\n  const segmentSeconds = requiresSegmentation\n    ? Math.min(PREFERRED_SEGMENT_SECONDS, maxSecondsBySize || PREFERRED_SEGMENT_SECONDS)\n    : durationSeconds;\n\n  const overlapSeconds = requiresSegmentation && durationSeconds > segmentSeconds\n    ? Math.min(OVERLAP_SECONDS, Math.max(0, segmentSeconds - 1))\n    : 0;\n\n  const stepSeconds = Math.max(1, segmentSeconds - overlapSeconds);\n\n  const plannedSegments = [];\n\n  if (!requiresSegmentation) {\n    plannedSegments.push({ start: 0, end: durationSeconds });\n  } else {\n    let start = 0;\n\n    while (start < durationSeconds) {\n      const end = Math.min(start + segmentSeconds, durationSeconds);\n      plannedSegments.push({ start, end });\n\n      if (end >= durationSeconds) break;\n      start += stepSeconds;\n    }\n  }\n\n  const totalSegments = plannedSegments.length;\n\n  for (let segmentIndex = 0; segmentIndex < totalSegments; segmentIndex++) {\n    const plan = plannedSegments[segmentIndex];\n\n    const startByte = Math.max(\n      0,\n      Math.floor((plan.start * wav.byteRate) / wav.blockAlign) * wav.blockAlign\n    );\n\n    const endByte = Math.min(\n      wav.dataSize,\n      Math.ceil((plan.end * wav.byteRate) / wav.blockAlign) * wav.blockAlign\n    );\n\n    const dataSlice = audioBuffer.subarray(wav.dataStart + startByte, wav.dataStart + endByte);\n    const segmentBuffer = requiresSegmentation\n      ? createWavBuffer(wav.fmtData, dataSlice)\n      : audioBuffer;\n\n    if (requiresSegmentation && segmentBuffer.length > MAX_DIRECT_FILE_BYTES) {\n      throw new Error(\n        `Segment ${segmentIndex + 1}/${totalSegments} for ${originalAudioId} is still too large: ${segmentBuffer.length} bytes.`\n      );\n    }\n\n    const segmentLabel = `${originalAudioId}_segment_${String(segmentIndex + 1).padStart(3, '0')}_of_${String(totalSegments).padStart(3, '0')}`;\n    const segmentFileName = `${segmentLabel}.wav`;\n\n    const binaryAudio = requiresSegmentation\n      ? await this.helpers.prepareBinaryData(segmentBuffer, segmentFileName, 'audio/wav')\n      : item.binary.audio;\n\n    output.push({\n      json: {\n        ...item.json,\n        original_audio_id: originalAudioId,\n        is_segmented: requiresSegmentation,\n        segmentation_reason: requiresSegmentation\n          ? [\n              durationSeconds > DIRECT_DURATION_SECONDS ? 'duration_over_20_minutes' : null,\n              fileSizeBytes > MAX_DIRECT_FILE_BYTES ? 'file_over_20_mb' : null,\n            ].filter(Boolean).join(',')\n          : 'not_segmented',\n        segment_index: segmentIndex,\n        total_segments: totalSegments,\n        segment_start_seconds: Math.round(plan.start * 1000) / 1000,\n        segment_end_seconds: Math.round(plan.end * 1000) / 1000,\n        segment_duration_seconds: Math.round((plan.end - plan.start) * 1000) / 1000,\n        segment_overlap_seconds: overlapSeconds,\n        segment_label: segmentLabel,\n        segment_file_name: segmentFileName,\n        original_audio_file_size_bytes: fileSizeBytes,\n        segment_file_size_bytes: segmentBuffer.length,\n        segment_target_seconds: segmentSeconds,\n        wav_audio_format: wav.audioFormat,\n        wav_channels: wav.channels,\n        wav_sample_rate: wav.sampleRate,\n        wav_byte_rate: wav.byteRate,\n        wav_bits_per_sample: wav.bitsPerSample,\n      },\n      binary: {\n        ...item.binary,\n        audio: binaryAudio,\n      },\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        944
+      ],
+      "id": "264cb583-5af6-4aae-a3f2-1f49ee01647b",
+      "name": "Build Audio Segments"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audio"
+            },
+            {
+              "name": "model",
+              "value": "gpt-4o-mini-transcribe"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3680,
+        944
+      ],
+      "id": "7a6c4a93-8244-485e-8c01-7e4e0237cf5d",
+      "name": "Open AI Transcription",
+      "retryOnFail": true,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "jsCode": "const transcriptions = $input.all();\nconst segmentItems = $('Build Audio Segments').all();\n\nfunction normalizeTranscript(response) {\n  // OpenAI diarized_json returns speaker segments.\n  if (Array.isArray(response.segments) && response.segments.length > 0) {\n    return response.segments\n      .map(segment => {\n        const speaker = segment.speaker || 'Unknown';\n        const text = String(segment.text || '').trim();\n        return text ? `Speaker ${speaker}: ${text}` : '';\n      })\n      .filter(Boolean)\n      .join('\\n');\n  }\n\n  // Standard OpenAI json response returns { text: \"...\" }.\n  if (typeof response.text === 'string') {\n    return response.text.trim();\n  }\n\n  return '';\n}\n\nreturn transcriptions.map((item, index) => {\n  const transcription = item.json || {};\n  const original = segmentItems[index]?.json || {};\n\n  const segmentTranscript = normalizeTranscript(transcription);\n\n  return {\n    json: {\n      ...original,\n      segmentTranscript,\n      segmentTranscriptLength: segmentTranscript.length,\n      openaiTranscriptionModel: transcription.model || 'gpt-4o-mini-transcribe',\n      openaiTranscriptionUsage: transcription.usage || null,\n      openaiTranscriptionRaw: transcription,\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        944
+      ],
+      "id": "947633fc-e94e-4b7b-8dcf-fcba94b967fb",
+      "name": "Format Transcript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction formatSeconds(totalSeconds) {\n  const seconds = Math.max(0, Math.round(Number(totalSeconds || 0)));\n  const h = Math.floor(seconds / 3600);\n  const m = Math.floor((seconds % 3600) / 60);\n  const s = seconds % 60;\n\n  if (h > 0) {\n    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;\n  }\n\n  return `${m}:${String(s).padStart(2, '0')}`;\n}\n\nconst groups = {};\n\nfor (const item of items) {\n  const json = item.json || {};\n  const id = json.original_audio_id || `${json.tab || 'tab'}_${json.rowNumber || 'row'}`;\n\n  if (!groups[id]) {\n    groups[id] = [];\n  }\n\n  groups[id].push(json);\n}\n\nconst output = [];\n\nfor (const [originalAudioId, segments] of Object.entries(groups)) {\n  segments.sort((a, b) => Number(a.segment_index || 0) - Number(b.segment_index || 0));\n\n  const expectedSegments = Number(segments[0]?.total_segments || segments.length);\n\n  if (segments.length !== expectedSegments) {\n    throw new Error(\n      `Missing transcript segments for ${originalAudioId}. Expected ${expectedSegments}, received ${segments.length}.`\n    );\n  }\n\n  const transcriptParts = segments\n    .map(segment => {\n      const text = String(segment.segmentTranscript || '').trim();\n      if (!text) return '';\n\n      if (expectedSegments <= 1) {\n        return text;\n      }\n\n      const start = formatSeconds(segment.segment_start_seconds);\n      const end = formatSeconds(segment.segment_end_seconds);\n      return `[Segment ${Number(segment.segment_index) + 1}/${expectedSegments} | ${start}-${end}]\\n${text}`;\n    })\n    .filter(Boolean);\n\n  const fullTranscript = transcriptParts.join('\\n\\n');\n\n  output.push({\n    json: {\n      ...segments[0],\n      original_audio_id: originalAudioId,\n      transcriptText: fullTranscript,\n      transcriptTextLength: fullTranscript.length,\n      segmentsProcessed: segments.length,\n      total_segments: expectedSegments,\n      readyForParser: true,\n      segmentTranscripts: segments.map(segment => ({\n        segment_index: segment.segment_index,\n        segment_label: segment.segment_label,\n        start_seconds: segment.segment_start_seconds,\n        end_seconds: segment.segment_end_seconds,\n        text: segment.segmentTranscript || '',\n      })),\n    },\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4112,
+        944
+      ],
+      "id": "33bb214d-b007-412f-b267-e2d65cffae27",
+      "name": "Aggregate Segment Transcripts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.OPENAI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"model\": \"gpt-5.4-mini\",\n  \"store\": false,\n  \"max_output_tokens\": 1200,\n  \"input\": [\n    {\n      \"role\": \"system\",\n      \"content\": [\n        {\n          \"type\": \"input_text\",\n          \"text\": `You are a real estate call quality evaluator for ALM calls.\n\nYour task is to review the transcript and evaluate the agent using the exact fields required for the Google Sheet.\n\nYou must return only valid JSON that matches the required schema. Do not include markdown, explanations, or text outside the JSON.\n\nDo not invent facts. Base every YES, NO, or N/A decision only on the transcript.`\n        }\n      ]\n    },\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"input_text\",\n          \"text\": `ALM means:\nA = Appointment: The agent proactively asked for a tour, meeting, phone call, Zoom, or follow-up appointment.\nL = Location: The agent asked about other properties, other locations, areas of interest, or offered to look for similar homes.\nM = Motivation: The agent asked what the buyer liked about the property, what caught their attention, why they are interested, their timeline, goals, needs, or motivation.\nBonus = The agent offered to send, find, or show similar homes or additional options to maximize the client's time.\n\nCALL VALIDITY RULES:\n\nBefore evaluating the ALM fields, determine whether the call is valid and meaningful.\n\nIf the transcript is empty, extremely short, says \"Audio could not be transcribed\", contains only silence, contains only hold music, contains only automated connection messages, or has no meaningful agent-customer interaction:\n- Set all evaluation fields to \"N/A\".\n- The comments field must clearly explain that the call could not be evaluated because there was no meaningful agent-customer interaction or the audio could not be transcribed.\n- Use this style:\n\"Comment: The call could not be evaluated because there was no meaningful agent-customer interaction or the audio could not be transcribed. No ALM criteria could be met.\"\n\nIf the call is disconnected or cut off before the agent can complete a meaningful interaction:\n- Set professional_greeting to \"YES\" only if the agent clearly gave a professional greeting before the disconnect.\n- Set professional_greeting to \"NO\" if the agent answered but did not provide a professional greeting before the disconnect.\n- Set the ALM-related fields to \"N/A\" if there was no real opportunity to evaluate them.\n- Set potentially_counterproductive_actions to \"N/A\" unless the agent clearly mishandled the call before it ended.\n- The comments field must explain that the call ended too early to fully evaluate the ALM framework.\n\nIf the caller is a wrong number, vendor, solicitor, spam caller, or not a valid real estate lead:\n- Set professional_greeting based on what actually happened.\n- Set alm_framework_a, alm_framework_l, alm_framework_m, alm_framework_bonus, and successful_appointment_set to \"N/A\".\n- Set potentially_counterproductive_actions to \"NO\" unless the agent mishandled the interaction.\n- Set the remaining topic-specific fields to \"NO\" unless they clearly occurred.\n- The comments field must explain that this was not a valid lead interaction and that ALM criteria were not applicable.\n\nIf the transcript contains only a transfer introduction, Zillow connection message, voicemail, ringing, or system-generated content without a direct conversation between agent and lead:\n- Set all evaluation fields to \"N/A\".\n- The comments field must explain that no agent-lead conversation took place.\n\nOnly evaluate YES or NO when there is enough transcript evidence to support the decision. Do not force YES or NO when the call was not valid or was too short to evaluate.\n\nEVALUATION RULES:\n\n1. professional_greeting\n- YES if the agent gave a professional greeting, ideally including name, company/brokerage, or clear identification.\n- NO if the greeting was missing, too informal, incomplete, or the agent did not answer.\n- N/A only if the call is not a valid customer-agent interaction.\n\n2. alm_framework_a\n- YES if the agent proactively asked for an appointment, tour, meeting, phone call, Zoom, or specific next step.\n- NO if the agent only reacted to the caller, promised to call back, or never attempted to set an appointment.\n- N/A only if the call is disconnected, wrong number, vendor/solicitor, or no real lead interaction happened.\n\n3. alm_framework_l\n- YES if the agent asked about other properties, other locations, areas of interest, or whether the caller wanted to see additional homes.\n- NO if the agent did not explore other properties or locations.\n- N/A only if the call is not a valid lead interaction.\n\n4. alm_framework_m\n- YES if the agent asked about motivation, what the caller liked, what caught their attention, goals, timeline, needs, or reason for interest.\n- NO if no motivation/discovery question was asked.\n- N/A only if the call is not a valid lead interaction.\n\n5. alm_framework_bonus\n- YES if the agent offered to find, send, or show similar homes/additional listings/options.\n- NO if the agent did not offer additional options.\n- N/A only if the call is not a valid lead interaction.\n\n6. successful_appointment_set\n- YES only if a specific appointment, tour, meeting, Zoom, or call was confirmed with a clear date/time or firm time window during the call.\n- NO if the agent said they would call back, check with the seller, confirm later, left the time vague, or did not finalize the appointment.\n- N/A only if the call is not a valid lead interaction.\n\n7. potentially_counterproductive_actions\n- YES if the agent did anything that could reduce conversion or weaken the call, such as becoming reactive, focusing too much on property details, spending time looking up information instead of leading the call, discussing financing/prequalification too early, discussing buyer agency too early, asking if the caller is working with another agent in a way that derails the appointment, failing to control the call, or ending with a vague callback.\n- NO if no counterproductive behavior is detected.\n- N/A only if there was no meaningful agent-customer interaction.\n\n8. discussed_property_specifics\n- YES if the agent spent time discussing property details such as square footage, condition, bedrooms, bathrooms, roof, repairs, listing errors, restrictions, price, construction, or similar specifics.\n- NO if the agent avoided getting stuck in property details and stayed focused on appointment/ALM.\n- N/A if not applicable.\n\n9. asked_pre_qualified\n- YES if the agent asked about pre-qualification, mortgage status, financing approval, lender, credit, income, or affordability in a way that could distract from setting the appointment.\n- NO if this did not happen.\n- N/A if not applicable.\n\n10. reactive_not_proactive\n- YES if the agent mostly followed the caller's lead, answered questions, looked things up, promised a callback, or failed to guide the call through ALM.\n- NO if the agent clearly led the call proactively.\n- N/A if there was no valid call interaction.\n\n11. discussed_buyers_agency\n- YES if the agent discussed buyer agency, representation agreements, buyer broker agreements, or agency paperwork.\n- NO if this did not happen.\n- N/A if not applicable.\n\n12. asked_working_with_another_agent\n- YES if the agent asked whether the caller was working with another agent, already had an agent, or was represented by another agent.\n- NO if this did not happen.\n- N/A if not applicable.\n\nCOMMENT STYLE:\nWrite one concise paragraph starting with \"Comment:\".\nThe comment must sound like a professional QA evaluation.\nMention the agent by name if known. If not known, use \"The agent\".\nStart with the strongest positive when there is one.\nThen mention the most important missed opportunities.\nDo not list every field mechanically.\nFocus on the main coaching points:\n- professional greeting\n- proactive appointment setting\n- other properties/locations\n- buyer motivation\n- similar homes/options\n- firm date/time confirmation\n- reactive vs proactive behavior\n- counterproductive topics such as property details, financing/prequalification, buyer agency, or asking about another agent too early\n\nFor excellent calls, recognize the strong ALM performance and mention only minor misses.\nFor weak calls, be direct and explain what was missed.\nFor disconnected calls, wrong numbers, vendors, or calls with no agent interaction, clearly state that no ALM criteria could be met.\n\nCALL METADATA:\nOffice/Tab: ${$json.tab || \"\"}\nSheet Row Number: ${$json.rowNumber || \"\"}\nAgent from Sheet: ${$json.agent || \"\"}\nLead Name: ${$json.lead || \"\"}\nDuration: ${$json.durationForSheet || \"\"}\n\nTRANSCRIPT:\n${$json.transcriptText || \"\"}`\n        }\n      ]\n    }\n  ],\n  \"text\": {\n    \"format\": {\n      \"type\": \"json_schema\",\n      \"name\": \"alm_call_review\",\n      \"strict\": true,\n      \"schema\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"professional_greeting\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"alm_framework_a\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"alm_framework_l\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"alm_framework_m\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"alm_framework_bonus\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"successful_appointment_set\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"potentially_counterproductive_actions\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"discussed_property_specifics\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"asked_pre_qualified\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"reactive_not_proactive\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"discussed_buyers_agency\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"asked_working_with_another_agent\": {\n            \"type\": \"string\",\n            \"enum\": [\"YES\", \"NO\", \"N/A\"]\n          },\n          \"comments\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"professional_greeting\",\n          \"alm_framework_a\",\n          \"alm_framework_l\",\n          \"alm_framework_m\",\n          \"alm_framework_bonus\",\n          \"successful_appointment_set\",\n          \"potentially_counterproductive_actions\",\n          \"discussed_property_specifics\",\n          \"asked_pre_qualified\",\n          \"reactive_not_proactive\",\n          \"discussed_buyers_agency\",\n          \"asked_working_with_another_agent\",\n          \"comments\"\n        ]\n      }\n    }\n  }\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4336,
+        944
+      ],
+      "id": "eae980a4-20a9-4004-b9df-4852d6327541",
+      "name": "Open AI Review",
+      "retryOnFail": true,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst original = $('Aggregate Segment Transcripts').first().json;\n\nfunction extractOpenAIText(response) {\n  if (response.output_text) {\n    return response.output_text;\n  }\n\n  const text = response.output?.[0]?.content?.[0]?.text;\n\n  if (!text) {\n    throw new Error('OpenAI response does not contain output[0].content[0].text');\n  }\n\n  return text;\n}\n\nconst rawText = extractOpenAIText(response);\n\nlet review;\n\ntry {\n  review = JSON.parse(rawText);\n} catch (error) {\n  throw new Error(`Could not parse OpenAI review JSON: ${error.message}. Raw text: ${rawText}`);\n}\n\nreturn [\n  {\n    json: {\n      ...original,\n\n      professionalGreeting: review.professional_greeting,\n      almFrameworkA: review.alm_framework_a,\n      almFrameworkL: review.alm_framework_l,\n      almFrameworkM: review.alm_framework_m,\n      almFrameworkBonus: review.alm_framework_bonus,\n      successfulAppointmentSet: review.successful_appointment_set,\n      potentiallyCounterproductiveActions: review.potentially_counterproductive_actions,\n      discussedPropertySpecifics: review.discussed_property_specifics,\n      askedPreQualified: review.asked_pre_qualified,\n      reactiveNotProactive: review.reactive_not_proactive,\n      discussedBuyersAgency: review.discussed_buyers_agency,\n      askedWorkingWithAnotherAgent: review.asked_working_with_another_agent,\n      commentsForSheet: review.comments,\n\n      statusForSheet: 'OpenAI Completed',\n\n      openaiReviewRaw: review\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4544,
+        944
+      ],
+      "id": "e22ae061-bb81-4b2e-9de3-2f110c7f1f5d",
+      "name": "Parse AI Review"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_CALL_TRACKING_SHEET_ID/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"valueInputOption\": \"RAW\",\n  \"data\": [\n    {\n      \"range\": \"'{{$json.tab}}'!I{{$json.rowNumber}}:I{{$json.rowNumber}}\",\n      \"majorDimension\": \"ROWS\",\n      \"values\": [\n        [\n          \"{{$json.durationForSheet}}\"\n        ]\n      ]\n    },\n    {\n      \"range\": \"'{{$json.tab}}'!J{{$json.rowNumber}}:W{{$json.rowNumber}}\",\n      \"majorDimension\": \"ROWS\",\n      \"values\": [\n        [\n          \"{{$json.professionalGreeting}}\",\n          \"{{$json.almFrameworkA}}\",\n          \"{{$json.almFrameworkL}}\",\n          \"{{$json.almFrameworkM}}\",\n          \"{{$json.almFrameworkBonus}}\",\n          \"{{$json.successfulAppointmentSet}}\",\n          \"{{$json.potentiallyCounterproductiveActions}}\",\n          \"{{$json.discussedPropertySpecifics}}\",\n          \"{{$json.askedPreQualified}}\",\n          \"{{$json.reactiveNotProactive}}\",\n          \"{{$json.discussedBuyersAgency}}\",\n          \"{{$json.askedWorkingWithAnotherAgent}}\",\n          \"{{$json.commentsForSheet}}\",\n          \"GPT AI Reviewed\"\n        ]\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4752,
+        944
+      ],
+      "id": "67482fa7-b1e4-495d-8a25-a5f0376c9c4f",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "MvZgduhWNCjIYZp6",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2864,
+        816
+      ],
+      "id": "e8aa9d1d-97ed-4ddd-ac76-2e0f5c531d7a",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {},
+      "id": "33933725-ec47-45f5-a781-ff19dd781cb0",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": false,
+        "filters": {
+          "q": "label:ALL-ALM",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "c7491dac-a8db-447c-83ed-b2d760c70ce4",
+      "name": "Gmail - Get Unread ALL ALM",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        224
+      ],
+      "webhookId": "d3322fdb-5320-405d-a6c0-27c31af8cdba",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst MONTHS = {\n  jan: 'January', january: 'January',\n  feb: 'February', february: 'February',\n  mar: 'March', march: 'March',\n  apr: 'April', april: 'April',\n  may: 'May',\n  jun: 'June', june: 'June',\n  jul: 'July', july: 'July',\n  aug: 'August', august: 'August',\n  sep: 'September', sept: 'September', september: 'September',\n  oct: 'October', october: 'October',\n  nov: 'November', november: 'November',\n  dec: 'December', december: 'December',\n};\n\nfunction escapeRegex(value) {\n  return String(value).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\n\nfunction looksLikeBase64Url(value) {\n  const text = String(value || '').trim();\n\n  return (\n    text.length > 30 &&\n    !/\\s/.test(text) &&\n    !text.includes('<') &&\n    /^[A-Za-z0-9+/_=-]+$/.test(text)\n  );\n}\n\nfunction decodeBase64Url(value) {\n  if (!value || typeof value !== 'string') return '';\n\n  try {\n    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');\n    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);\n    return Buffer.from(padded, 'base64').toString('utf8');\n  } catch {\n    return value;\n  }\n}\n\nfunction decodeQuotedPrintable(value) {\n  return String(value || '')\n    .replace(/=\\r?\\n/g, '')\n    .replace(/=([A-Fa-f0-9]{2})/g, (_, hex) =>\n      String.fromCharCode(parseInt(hex, 16))\n    );\n}\n\nfunction decodeContent(value) {\n  let output = String(value || '');\n\n  if (looksLikeBase64Url(output)) {\n    output = decodeBase64Url(output);\n  }\n\n  if (/=[A-Fa-f0-9]{2}|=\\r?\\n/.test(output)) {\n    output = decodeQuotedPrintable(output);\n  }\n\n  return output;\n}\n\nfunction htmlDecode(value) {\n  return String(value || '')\n    .replace(/&nbsp;/gi, ' ')\n    .replace(/&amp;/gi, '&')\n    .replace(/&#39;/gi, \"'\")\n    .replace(/&apos;/gi, \"'\")\n    .replace(/&quot;/gi, '\"')\n    .replace(/&lt;/gi, '<')\n    .replace(/&gt;/gi, '>');\n}\n\nfunction clean(value) {\n  return htmlDecode(decodeContent(value))\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction cleanUrl(value) {\n  return htmlDecode(decodeQuotedPrintable(String(value || '')))\n    .replace(/\\s+/g, '')\n    .replace(/[>\"')\\].,;]+$/g, '')\n    .trim();\n}\n\nfunction extractBetweenLabels(source, label, nextLabels = []) {\n  const escapedLabel = escapeRegex(label);\n\n  const escapedNextLabels = nextLabels\n    .map(escapeRegex)\n    .join('|');\n\n  const pattern = escapedNextLabels\n    ? new RegExp(`${escapedLabel}\\\\s+(.+?)\\\\s+(?=${escapedNextLabels}\\\\s+)`, 'i')\n    : new RegExp(`${escapedLabel}\\\\s+(.+)$`, 'i');\n\n  const match = source.match(pattern);\n  return match ? match[1].trim() : '';\n}\n\nfunction getPayloadContent(payload, mimeType) {\n  if (!payload) return '';\n\n  let output = '';\n\n  function walk(part) {\n    if (!part) return;\n\n    if (part.mimeType === mimeType && part.body?.data) {\n      output += decodeContent(part.body.data) + ' ';\n    }\n\n    if (Array.isArray(part.parts)) {\n      part.parts.forEach(walk);\n    }\n  }\n\n  walk(payload);\n  return output.trim();\n}\n\nfunction extractRecordingLink(html, text = '') {\n  const decodedHtml = decodeContent(html || '');\n  const combined = `${decodedHtml}\\n${text || ''}`;\n\n  const links = [];\n\n  const anchorRegex =\n    /<a\\b[^>]*href\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^'\">\\s]+))[^>]*>([\\s\\S]*?)<\\/a>/gi;\n\n  let match;\n\n  while ((match = anchorRegex.exec(combined)) !== null) {\n    const href = cleanUrl(match[1] || match[2] || match[3]);\n    const label = clean(match[4]);\n\n    links.push({ href, label });\n\n    if (/listen\\s+to\\s+recording/i.test(label)) {\n      return href;\n    }\n\n    if (/recording/i.test(label) && !/unsubscribe|preferences|n8n/i.test(href)) {\n      return href;\n    }\n  }\n\n  // Fallback: href appears near the word Recording\n  const nearRecordingPatterns = [\n    /Recording[\\s\\S]{0,1200}?href\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^'\">\\s]+))/i,\n    /href\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^'\">\\s]+))[\\s\\S]{0,1200}?Recording/i,\n    /Listen\\s+to\\s+recording[\\s\\S]{0,1200}?(https?:\\/\\/[^\\s\"'<>]+)/i,\n    /Recording[\\s\\S]{0,1200}?(https?:\\/\\/[^\\s\"'<>]+)/i,\n  ];\n\n  for (const pattern of nearRecordingPatterns) {\n    const result = combined.match(pattern);\n    if (result) {\n      return cleanUrl(result[1] || result[2] || result[3]);\n    }\n  }\n\n  // Last fallback: choose a likely recording/audio/call link, but avoid footer links\n  const likelyLink = links.find(link =>\n    /(record|recording|audio|call|voicemail|zillow)/i.test(link.href) &&\n    !/(unsubscribe|preferences|n8n)/i.test(link.href)\n  );\n\n  return likelyLink ? likelyLink.href : '';\n}\n\nfunction getFallbackYear(json = {}) {\n  if (json.internalDate) {\n    const d = new Date(Number(json.internalDate));\n    if (!Number.isNaN(d.getTime())) return d.getFullYear();\n  }\n\n  if (json.date) {\n    const d = new Date(json.date);\n    if (!Number.isNaN(d.getTime())) return d.getFullYear();\n  }\n\n  if (json.headers?.date) {\n    const d = new Date(json.headers.date);\n    if (!Number.isNaN(d.getTime())) return d.getFullYear();\n  }\n\n  return new Date().getFullYear();\n}\n\nfunction formatCallDate(value, fallbackYear) {\n  if (!value) return '';\n\n  let dateText = clean(value)\n    .replace(/,/g, '')\n    .replace(/\\bat\\b/gi, ' ')\n    .replace(/(\\d)(am|pm)\\b/gi, '$1 $2')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  let match;\n\n  // May 22 2026 5:30 PM\n  match = dateText.match(\n    /^([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{4})\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)$/i\n  );\n\n  if (match) {\n    const [, monthRaw, day, year, hour, minute = '00', ampm] = match;\n    const month = MONTHS[monthRaw.toLowerCase()] || monthRaw;\n    return `${Number(day)} ${month} ${year} at ${Number(hour)}:${minute.padStart(2, '0')} ${ampm.toUpperCase()}`;\n  }\n\n  // May 22 5:30pm\n  match = dateText.match(\n    /^([A-Za-z]+)\\s+(\\d{1,2})\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)$/i\n  );\n\n  if (match) {\n    const [, monthRaw, day, hour, minute = '00', ampm] = match;\n    const month = MONTHS[monthRaw.toLowerCase()] || monthRaw;\n    const year = fallbackYear || new Date().getFullYear();\n\n    return `${Number(day)} ${month} ${year} at ${Number(hour)}:${minute.padStart(2, '0')} ${ampm.toUpperCase()}`;\n  }\n\n  // 05/22/2026 5:30 PM\n  match = dateText.match(\n    /^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)$/i\n  );\n\n  if (match) {\n    let [, monthNumber, day, year, hour, minute = '00', ampm] = match;\n\n    if (year.length === 2) year = `20${year}`;\n\n    const monthNames = [\n      'January', 'February', 'March', 'April', 'May', 'June',\n      'July', 'August', 'September', 'October', 'November', 'December',\n    ];\n\n    const month = monthNames[Number(monthNumber) - 1] || monthNumber;\n\n    return `${Number(day)} ${month} ${year} at ${Number(hour)}:${minute.padStart(2, '0')} ${ampm.toUpperCase()}`;\n  }\n\n  return value;\n}\n\nfunction escapeSheetFormula(value) {\n  return String(value || '').replace(/\"/g, '\"\"');\n}\n\nreturn items.map(item => {\n  const json = item.json || {};\n\n  const html = [\n    json.html,\n    json.textHtml,\n    json.body?.html,\n    json.body?.textHtml,\n    getPayloadContent(json.payload, 'text/html'),\n    json.payload?.body?.data,\n  ]\n    .map(decodeContent)\n    .filter(Boolean)\n    .join('\\n');\n\n  const text = [\n    json.text,\n    json.textPlain,\n    json.body?.text,\n    json.body?.textPlain,\n    getPayloadContent(json.payload, 'text/plain'),\n    json.snippet,\n  ]\n    .map(decodeContent)\n    .filter(Boolean)\n    .join('\\n');\n\n  const source = clean(`${text} ${html}`);\n\n  const labels = [\n    'Office',\n    'Property Address',\n    'Price',\n    'Agent',\n    'Lead',\n    'Phone',\n    'Call Date',\n    'Recording',\n  ];\n\n  const office = extractBetweenLabels(source, 'Office', labels.slice(1));\n  const propertyAddress = extractBetweenLabels(source, 'Property Address', labels.slice(2));\n  const price = extractBetweenLabels(source, 'Price', labels.slice(3));\n  const agent = extractBetweenLabels(source, 'Agent', labels.slice(4));\n  const lead = extractBetweenLabels(source, 'Lead', labels.slice(5));\n  const phone = extractBetweenLabels(source, 'Phone', labels.slice(6));\n  const rawCallDate = extractBetweenLabels(source, 'Call Date', labels.slice(7));\n\n  const recordingLink = extractRecordingLink(html, text);\n\n  return {\n    json: {\n      emailId: json.id || '',\n      office,\n      propertyAddress,\n      price,\n      agent,\n      lead,\n      phone,\n      callDate: formatCallDate(rawCallDate, getFallbackYear(json)),\n      rawCallDate,\n      recordingLink,\n\n      // Optional: use this in Google Sheets for a clickable label\n      recordingFormula: recordingLink\n        ? `=HYPERLINK(\"${escapeSheetFormula(recordingLink)}\",\"Listen to recording\")`\n        : '',\n\n      // Debug helper\n      recordingLinkFound: Boolean(recordingLink),\n    },\n  };\n});"
+      },
+      "id": "b437368c-a442-4f84-87b4-9907fe2b3798",
+      "name": "Parse Email Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.office }}",
+                    "rightValue": "Los Angeles",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "36352371-8fdf-40fd-b8d8-8b8b2f0122a4"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6803a975-c63f-4c07-8789-3de7a5abe5f0",
+                    "leftValue": "={{ $json.office }}",
+                    "rightValue": "Riverside",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d642efc7-8509-415a-9112-7790e8678d30",
+                    "leftValue": "={{ $json.office }}",
+                    "rightValue": "Orange County",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        256,
+        208
+      ],
+      "id": "610335f5-35ec-4cc8-8269-d049e9a92790",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"secret\": \"{{ $env.APPSCRIPT_SHARED_SECRET }}\",\n  \"office\": \"{{ $json.office }}\",\n  \"agent\": \"{{ $json.agent }}\",\n  \"lead\": \"{{ $json.lead }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"callDate\": \"{{ $json.callDate }}\",\n  \"recordingLink\": \"{{ $json.recordingLink }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        16
+      ],
+      "id": "a377a1bf-9c35-498e-a689-065611218c00",
+      "name": "Los Angeles Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8b93438-da83-4d0c-98f0-f7aedc2698ce",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        16
+      ],
+      "id": "a59693ca-931e-4aa8-8358-4d6477b8372c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}"
+      },
+      "id": "9754f218-2c34-461a-a3f8-682cb979acd3",
+      "name": "Gmail - Mark as Read1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        128
+      ],
+      "webhookId": "229274e5-e7c1-4d2f-b272-4b6230d5fb52",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8b93438-da83-4d0c-98f0-f7aedc2698ce",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        224
+      ],
+      "id": "44122319-8ae7-4c87-b52a-056390b7eacd",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_156467442152939760"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        128
+      ],
+      "id": "90ecf6d5-edf2-46e8-b4a3-2d76f2eefb0b",
+      "name": "Remove label from message1",
+      "webhookId": "40580ed5-0799-4ec2-a38a-58d9436507e7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_6078778679172742675"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        128
+      ],
+      "id": "11ed1176-1d0c-4d4b-8b74-1f8d653272ca",
+      "name": "Add label to message1",
+      "webhookId": "6f737b4e-053b-498b-931e-bd16cbe772a0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"secret\": \"{{ $env.APPSCRIPT_SHARED_SECRET }}\",\n  \"office\": \"{{ $json.office }}\",\n  \"agent\": \"{{ $json.agent }}\",\n  \"lead\": \"{{ $json.lead }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"callDate\": \"{{ $json.callDate }}\",\n  \"recordingLink\": \"{{ $json.recordingLink }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        224
+      ],
+      "id": "676d42ba-36c9-46a2-a4c4-45a57e9e4d76",
+      "name": "Riverside Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8b93438-da83-4d0c-98f0-f7aedc2698ce",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        448
+      ],
+      "id": "3f9a5d6b-b7bc-4cd3-9110-6c7994b58244",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"secret\": \"{{ $env.APPSCRIPT_SHARED_SECRET }}\",\n  \"office\": \"{{ $json.office }}\",\n  \"agent\": \"{{ $json.agent }}\",\n  \"lead\": \"{{ $json.lead }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"callDate\": \"{{ $json.callDate }}\",\n  \"recordingLink\": \"{{ $json.recordingLink }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        448
+      ],
+      "id": "cb3eb218-6fbd-4288-852b-3e7d7e4d6200",
+      "name": "Orange Request"
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}"
+      },
+      "id": "0b77707e-4fad-463f-a39a-e3750bfd522b",
+      "name": "Gmail - Mark as Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        336
+      ],
+      "webhookId": "229274e5-e7c1-4d2f-b272-4b6230d5fb52",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_156467442152939760"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        336
+      ],
+      "id": "5e8fade3-6fc7-4327-b581-0d409e398753",
+      "name": "Remove label from message",
+      "webhookId": "40580ed5-0799-4ec2-a38a-58d9436507e7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_6078778679172742675"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        336
+      ],
+      "id": "0ff42b55-e1ac-43e7-8067-1232201c77f8",
+      "name": "Add label to message",
+      "webhookId": "6f737b4e-053b-498b-931e-bd16cbe772a0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}"
+      },
+      "id": "36446716-0d21-4745-86f0-aeef2f4634a2",
+      "name": "Gmail - Mark as Read2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        560
+      ],
+      "webhookId": "229274e5-e7c1-4d2f-b272-4b6230d5fb52",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_156467442152939760"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        560
+      ],
+      "id": "aa2b4d31-4d69-485f-9b9c-7f1b7c7431c0",
+      "name": "Remove label from message2",
+      "webhookId": "40580ed5-0799-4ec2-a38a-58d9436507e7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Parse Email Fields').item.json.emailId }}",
+        "labelIds": [
+          "Label_6078778679172742675"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        560
+      ],
+      "id": "ecfd58c2-1b55-4c90-8997-aaeb51d2287b",
+      "name": "Add label to message2",
+      "webhookId": "6f737b4e-053b-498b-931e-bd16cbe772a0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        560
+      ],
+      "id": "4c283cfd-8804-4148-bfe9-74a2dab5d6e4",
+      "name": "Wait",
+      "webhookId": "c1fba09e-e569-4063-aaea-9d8301325107"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rows": {
+      "main": [
+        [
+          {
+            "node": "Parse Rows + Find Elegible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Rows + Find Elegible": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Audio": {
+      "main": [
+        [
+          {
+            "node": "Extract Duration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Duration": {
+      "main": [
+        [
+          {
+            "node": "Build Audio Segments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open AI Transcription": {
+      "main": [
+        [
+          {
+            "node": "Format Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Transcript": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Segment Transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open AI Review": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Review": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Get Unread ALL ALM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Get Unread ALL ALM": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Fields": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Los Angeles Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Riverside Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Orange Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Los Angeles Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Add label to message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Add label to message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove label from message1": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Mark as Read1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message1": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Riverside Request": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Add label to message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orange Request": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove label from message": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove label from message2": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Mark as Read2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message2": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Mark as Read2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Audio Segments": {
+      "main": [
+        [
+          {
+            "node": "Open AI Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Segment Transcripts": {
+      "main": [
+        [
+          {
+            "node": "Open AI Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5447cb2f-08d7-4345-b2a2-baa98ec34665",
+  "meta": {},
+  "id": "demo-alm-call-scoring",
+  "tags": []
+}

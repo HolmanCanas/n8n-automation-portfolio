@@ -1,0 +1,1142 @@
+{
+  "name": "Agent Roster & Weekly Lead-Contact Report (Portfolio Demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://slack.com/api/users.info",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "user",
+              "value": "={{ $json[\"slackUserId\"] }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "id": "ce48dee0-21f4-4fda-9063-81e67a8083b5",
+      "name": "Get Agent Photo1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        112
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "qkWeVL6zDJWApsqq",
+          "name": "Slack account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── DRY RUN CONFIG (set to false for production) ──────────\nconst DRY_RUN = false;\nconst DRY_RUN_EMAIL = 'manager@example.com';\nconst DRY_RUN_SLACK_ID = 'UXXXXXXXXXX';\n// ────────────────────────────────────────────────────────────\n\nconst STAGE_COLORS = {\n  'Active Listing':      { bg: '#eff6ff', color: '#1d4ed8' },\n  'Appointment Set':     { bg: '#fce7f3', color: '#9d174d' },\n  'Attempted Contact':   { bg: '#fee2e2', color: '#991b1b' },\n  'Met with customer':   { bg: '#dbeafe', color: '#1e40af' },\n  'Nurture':             { bg: '#f3f4f6', color: '#4b5563' },\n  'Showing Homes':       { bg: '#fef3c7', color: '#92400e' },\n  'Spoke with Customer': { bg: '#ede9fe', color: '#5b21b6' },\n  'Submitting Offers':   { bg: '#ecfdf5', color: '#065f46' },\n  'Under Contract':      { bg: '#d1fae5', color: '#065f46' },\n};\n\nconst PIPELINE_COLORS = ['#3b82f6','#8b5cf6','#f59e0b','#10b981','#1e40af','#6366f1','#f97316'];\n\nfunction norm(value) {\n  return String(value || '')\n    .trim()\n    .toLowerCase()\n    .replace(/\\s+/g, ' ');\n}\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction getDays(lastComm) {\n  return parseInt((lastComm || '0').split(' ')[0]) || 0;\n}\n\nfunction getInitials(name) {\n  const p = clean(name).split(' ').filter(Boolean);\n  if (!p.length) return '';\n  return p.length >= 2\n    ? (p[0][0] + p[p.length - 1][0]).toUpperCase()\n    : p[0].substring(0, 2).toUpperCase();\n}\n\nfunction dotColor(days) {\n  return days >= 7 ? '#dc2626' : days >= 4 ? '#f59e0b' : '#10b981';\n}\n\nfunction textColor(days) {\n  return days >= 7 ? '#dc2626' : days >= 4 ? '#f59e0b' : '#10b981';\n}\n\nfunction borderColor(days) {\n  return days >= 7 ? '#dc2626' : days >= 4 ? '#f59e0b' : '#10b981';\n}\n\nfunction todayLabel() {\n  return new Date().toLocaleDateString('en-US', {\n    month: 'short',\n    day: 'numeric',\n    year: 'numeric',\n  });\n}\n\nconst inputItems = $input.all();\n\n// ── 1. Separate dynamic agent directory from lead rows ──────\nconst agentRows = [];\nconst leadRows = [];\n\nfor (const item of inputItems) {\n  const row = item.json || {};\n\n  const agentName = clean(row['Agent Name']);\n  const email = clean(row.Email || row[' Email']);\n  const slackId = clean(row['Slack ID'] || row.SlackID || row.slackUserId);\n  const alias = clean(row.Alias);\n\n  const isAgentDirectoryRow =\n    !!agentName || !!email || !!slackId || Object.prototype.hasOwnProperty.call(row, 'Agent Name');\n\n  const isLeadRow =\n    !!clean(row.Agent) &&\n    !!clean(row.ID) &&\n    !!clean(row.Name);\n\n  if (isLeadRow) {\n    leadRows.push(row);\n    continue;\n  }\n\n  if (isAgentDirectoryRow) {\n    // Keep offboarded/skipped rows out of the usable directory.\n    if (row._skip || norm(email) === 'offboarded') continue;\n\n    if (!agentName) continue;\n\n    agentRows.push({\n      row_number: row.row_number,\n      agentName,\n      alias,\n      email,\n      slackId,\n      match_method: row.match_method || '',\n    });\n  }\n}\n\n// ── 2. Build lookup maps by Agent Name and Alias ────────────\nconst agentsByName = {};\nconst agentsByAlias = {};\n\nfor (const agent of agentRows) {\n  const nameKey = norm(agent.agentName);\n  const aliasKey = norm(agent.alias);\n\n  if (nameKey && !agentsByName[nameKey]) {\n    agentsByName[nameKey] = agent;\n  }\n\n  if (aliasKey && !agentsByAlias[aliasKey]) {\n    agentsByAlias[aliasKey] = agent;\n  }\n}\n\nfunction findAgentForLeadAgent(leadAgentName) {\n  const key = norm(leadAgentName);\n\n  if (agentsByName[key]) {\n    return {\n      agent: agentsByName[key],\n      source: 'name',\n    };\n  }\n\n  if (agentsByAlias[key]) {\n    return {\n      agent: agentsByAlias[key],\n      source: 'alias',\n    };\n  }\n\n  return {\n    agent: null,\n    source: 'none',\n  };\n}\n\n// ── 3. Group leads by their FUB Agent field ─────────────────\nconst agentLeads = {};\n\nfor (const row of leadRows) {\n  const agent = clean(row.Agent);\n  if (!agent || agent === 'Agent') continue;\n\n  if (!agentLeads[agent]) agentLeads[agent] = [];\n  agentLeads[agent].push(row);\n}\n\n// ── 4. Generate one dashboard per FUB agent with leads ──────\nconst results = [];\nconst skipped = [];\nconst today = todayLabel();\n\nfor (const [leadAgentName, leads] of Object.entries(agentLeads)) {\n  const match = findAgentForLeadAgent(leadAgentName);\n  const matchedAgent = match.agent;\n\n  if (!matchedAgent) {\n    skipped.push({\n      leadAgentName,\n      totalLeads: leads.length,\n      reason: 'agent_not_found_in_directory',\n    });\n    continue;\n  }\n\n  const agentName = leadAgentName;\n  const matchedAgentName = matchedAgent.agentName;\n  const matchedAlias = matchedAgent.alias || '';\n  const agentMatchSource = match.source;\n  const email = matchedAgent.email || '';\n  const slackUserId = matchedAgent.slackId || '';\n\n  if (!email && !slackUserId) {\n    skipped.push({\n      leadAgentName,\n      matchedAgentName,\n      matchedAlias,\n      totalLeads: leads.length,\n      reason: 'matched_agent_missing_email_and_slack_id',\n    });\n    continue;\n  }\n\n  const urgent = leads.filter(l => getDays(l['Last Communication']) >= 7);\n  const onTrack = leads.length - urgent.length;\n  const initials = getInitials(matchedAgentName || agentName);\n  const sortedLeads = [...leads].sort(\n    (a, b) => getDays(b['Last Communication']) - getDays(a['Last Communication'])\n  );\n\n  const pipeline = {};\n  for (const l of leads) {\n    const s = l.Stage || 'Unknown';\n    pipeline[s] = (pipeline[s] || 0) + 1;\n  }\n\n  // ── LEAD CARDS (table-based, Gmail-safe) ─────────────────\n  let leadsHTML = '';\n\n  for (const lead of sortedLeads) {\n    const days = getDays(lead['Last Communication']);\n    const sc = STAGE_COLORS[lead.Stage] || { bg: '#f3f4f6', color: '#4b5563' };\n    const timeLabel = days === 0 ? 'Today' : lead['Last Communication'] || '';\n    const cardBg = days >= 7 ? '#fffbfb' : '#ffffff';\n    const source = clean(lead['Lead Source']).replace('Zillow Preferred', 'ZP');\n\n    leadsHTML += `<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-bottom:10px;\"><tr><td bgcolor=\"${cardBg}\" style=\"border-radius:14px;border-left:4px solid ${borderColor(days)};padding:16px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-bottom:10px;\"><tr><td style=\"font-size:15px;font-weight:700;color:#1a1a2e;\">${lead.Name || ''}</td><td align=\"right\"><a href=\"${lead.Link || '#'}\" onclick=\"window.open(this.href,'_blank','noopener,noreferrer');return false;\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"background:#1a1a2e;color:#fff;text-decoration:none;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;display:inline-block;\">FUB &#8599;</a></td></tr></table><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"white-space:nowrap;padding-right:6px;\"><span style=\"font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;background:${sc.bg};color:${sc.color}\">${lead.Stage || ''}</span></td><td style=\"white-space:nowrap;padding-right:6px;\"><span style=\"font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:#f0f2f5;color:#6b7280;text-transform:uppercase;\">${source}</span></td><td align=\"right\" style=\"font-size:12px;font-weight:600;color:${textColor(days)};white-space:nowrap;\">&#9679; ${timeLabel}</td></tr></table></td></tr></table>`;\n  }\n\n  // ── PIPELINE BARS (table-based) ───────────────────────────\n  let pipelineHTML = '';\n  const maxCount = Math.max(...Object.values(pipeline), 1);\n  let ci = 0;\n\n  for (const [stage, count] of Object.entries(pipeline).sort((a, b) => b[1] - a[1])) {\n    const pct = Math.round((count / maxCount) * 100);\n    const barColor = PIPELINE_COLORS[ci % PIPELINE_COLORS.length];\n\n    pipelineHTML += `<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-bottom:10px;\"><tr><td width=\"140\" style=\"font-size:12px;font-weight:600;color:#374151;padding-right:10px;\">${stage}</td><td bgcolor=\"#f0f2f5\" style=\"border-radius:4px;\"><table height=\"8\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:${pct}%;\"><tr><td bgcolor=\"${barColor}\" style=\"border-radius:4px;height:8px;\"></td></tr></table></td><td width=\"22\" align=\"right\" style=\"font-size:12px;font-weight:700;color:#1a1a2e;padding-left:8px;\">${count}</td></tr></table>`;\n\n    ci++;\n  }\n\n  // ── URGENT BANNER (table-based) ───────────────────────────\n  const urgentBanner = urgent.length > 0\n    ? `<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#fef2f2\" style=\"border-radius:12px;border:1px solid #fca5a5;border-left:4px solid #dc2626;padding:14px 16px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"32\" style=\"font-size:20px;vertical-align:top;padding-right:10px;\">&#128680;</td><td style=\"vertical-align:top;\"><div style=\"font-size:13px;font-weight:700;color:#b91c1c;\">Action Required</div><div style=\"font-size:12px;color:#ef4444;margin-top:4px;line-height:1.5;\">${urgent.length} lead${urgent.length > 1 ? 's' : ''} without contact for 7+ days. Add a note &amp; task in FUB to avoid reassignment.</div></td></tr></table></td></tr></table>`\n    : `<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#f0fdf4\" style=\"border-radius:12px;border:1px solid #86efac;border-left:4px solid #10b981;padding:14px 16px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"32\" style=\"font-size:20px;padding-right:10px;\">&#9989;</td><td style=\"font-size:13px;font-weight:600;color:#065f46;\">Great job! All leads are within 7 days of contact.</td></tr></table></td></tr></table>`;\n\n  const slackUrgentLeads = urgent.slice(0, 5).map(l => ({\n    name: l.Name,\n    stage: l.Stage,\n    lastComm: l['Last Communication'],\n    link: l.Link || 'https://yourcompany.followupboss.com',\n    id: String(l.ID || Math.random()).replace('.', ''),\n  }));\n\n  results.push({\n    json: {\n      agentName,\n      matchedAgentName,\n      matchedAlias,\n      agentMatchSource,\n      agentEmail: email,\n      initials,\n      totalLeads: leads.length,\n      urgentCount: urgent.length,\n      onTrack,\n      leadsHTML,\n      pipelineHTML,\n      urgentBanner,\n      slackUrgentLeads,\n      slackUserId,\n      subject: `Your Zillow Dashboard - Week of ${today}`,\n      today,\n\n      // Debug fields. You can remove these after validation.\n      sourceLeadAgentName: leadAgentName,\n      matchedDirectoryRow: matchedAgent.row_number || null,\n    },\n  });\n}\n\n// Optional debug item only if nothing matched.\nif (!results.length) {\n  return [{\n    json: {\n      _debug: true,\n      reason: 'no_dashboards_generated',\n      inputItems: inputItems.length,\n      agentRows: agentRows.length,\n      leadRows: leadRows.length,\n      groupedLeadAgents: Object.keys(agentLeads),\n      skipped,\n    },\n  }];\n}\n\nif (DRY_RUN) {\n  const first = results[0];\n  return [{\n    json: {\n      ...first.json,\n      agentEmail: DRY_RUN_EMAIL,\n      slackUserId: DRY_RUN_SLACK_ID,\n      dryRunOriginalEmail: first.json.agentEmail,\n      dryRunOriginalSlackUserId: first.json.slackUserId,\n    },\n  }];\n}\n\nreturn results;"
+      },
+      "id": "9ea90d97-fbe2-4e1d-8df5-f5704e05a273",
+      "name": "Prepare Agent Data - Riverside",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-has-email",
+                    "leftValue": "={{ $json.email }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Has Email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-no-email",
+                    "leftValue": "={{ $json[\" Email\"] }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "empty"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "No Email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c186a53e-94cc-46c7-a60b-744ef2add187",
+      "name": "Route: Email or Name",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        176,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_AGENTS_ROSTER_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1682414539,
+          "mode": "list",
+          "cachedResultName": "Sheet4",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_AGENTS_ROSTER_SHEET_ID/edit#gid=1682414539"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A1:E200"
+            }
+          }
+        }
+      },
+      "id": "c4a63290-4aca-48b5-8f6e-07ff6d6ce625",
+      "name": "Extract Agents from list",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -176,
+        272
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst values = response.values || [];\nif (values.length < 2) return [];\nconst headers = values[0];\nconst rows = values.slice(1);\nreturn rows\n  .filter(row => row && row.some(cell => cell && String(cell).trim() !== ''))\n  .map(row => ({\n    json: Object.fromEntries(headers.map((h, i) => [h, row[i] !== undefined ? row[i] : '']))\n  }));\n"
+      },
+      "id": "d1a2ab7b-d034-4a1f-ab91-f7c21cb2ac89",
+      "name": "Transform Sheet Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node - Buscar Slack ID para TODOS los items\n// Modo recomendado del Code node:\n// - Mode: Run Once for All Items\n// - Language: JavaScript\n//\n// Requisitos Slack Bot Token scopes:\n// - users:read\n// - users:read.email\n//\n// Importante:\n// - En tu input el campo de email puede llegar como \"Email\" o \" Email\".\n// - Este código conserva Alias en TODOS los outputs.\n// - Corrige el bug donde Alias se perdía en los matches exitosos por email.\n// - Ignora filas completamente vacías para no generar muchos _skip no_match_found.\n//\n// Seguridad:\n// Reemplaza el valor de SLACK_TOKEN por tu token real o usa una variable segura de n8n.\n\nconst SLACK_TOKEN = $env.SLACK_BOT_TOKEN;\n\n// Ajusta este delay si Slack te da rate limit.\n// 0 = sin pausa.\n// 250 = pausa suave entre llamadas lookupByEmail.\nconst DELAY_MS_BETWEEN_EMAIL_LOOKUPS = 0;\n\nconst inputItems = $input.all();\nconst results = [];\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction cleanLower(value) {\n  return String(value || '').toLowerCase().trim();\n}\n\nfunction getEmail(json) {\n  return cleanLower(json['Email'] || json[' Email']);\n}\n\nfunction getAlias(json) {\n  return clean(json['Alias'] || json.alias || json[' Agent Alias'] || json['Agent Alias'] || '');\n}\n\nfunction isUsefulSearchTerm(value) {\n  return value && value.length >= 3;\n}\n\nfunction isBlankAgentRow(agentName, email, alias) {\n  return !agentName && !email && !alias;\n}\n\nfunction sleep(ms) {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n\nasync function slackGet(url) {\n  try {\n    const response = await this.helpers.httpRequest({\n      method: 'GET',\n      url,\n      headers: {\n        Authorization: `Bearer ${SLACK_TOKEN}`,\n      },\n      json: true,\n    });\n\n    return response;\n  } catch (error) {\n    return {\n      ok: false,\n      error: error.message || 'http_request_failed',\n    };\n  }\n}\n\n// Cache para no llamar users.list muchas veces.\n// Solo lo usamos si hay que hacer fallback por nombre/alias.\nlet cachedSlackMembers = null;\nlet usersListError = null;\n\nasync function getAllSlackMembers() {\n  if (cachedSlackMembers) return cachedSlackMembers;\n  if (usersListError) return [];\n\n  const members = [];\n  let cursor = '';\n\n  do {\n    const url = `https://slack.com/api/users.list?limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;\n\n    const data = await slackGet.call(this, url);\n\n    if (!data.ok) {\n      usersListError = data.error || 'slack_api_error';\n      return [];\n    }\n\n    for (const user of data.members || []) {\n      if (user.deleted || user.is_bot) continue;\n      members.push(user);\n    }\n\n    cursor = data.response_metadata?.next_cursor || '';\n  } while (cursor);\n\n  cachedSlackMembers = members;\n  return cachedSlackMembers;\n}\n\nasync function findByNameOrAlias(agentName, alias) {\n  const searchTerms = [agentName, alias].filter(isUsefulSearchTerm);\n\n  if (searchTerms.length === 0) {\n    return null;\n  }\n\n  const members = await getAllSlackMembers.call(this);\n\n  for (const user of members) {\n    const displayName = cleanLower(user.profile?.display_name);\n    const realName = cleanLower(user.profile?.real_name);\n    const userName = cleanLower(user.name);\n\n    const candidates = [displayName, realName, userName].filter(Boolean);\n\n    const found = searchTerms.some((term) =>\n      candidates.some((candidate) =>\n        candidate === term || candidate.includes(term)\n      )\n    );\n\n    if (found) {\n      return user;\n    }\n  }\n\n  return null;\n}\n\nfor (const item of inputItems) {\n  const json = item.json || {};\n\n  const email = getEmail(json);\n  const agentNameOriginal = clean(json['Agent Name'] || json.agentName || json.Agent);\n  const agentName = cleanLower(agentNameOriginal);\n  const aliasOriginal = getAlias(json);\n  const alias = cleanLower(aliasOriginal);\n\n  // Ignorar filas completamente vacías.\n  if (isBlankAgentRow(agentNameOriginal, email, aliasOriginal)) {\n    continue;\n  }\n\n  // Saltar offboarded, conservando Alias para debug.\n  if (email === 'offboarded') {\n    results.push({\n      json: {\n        _skip: true,\n        reason: 'offboarded',\n        row_number: json.row_number,\n        'Agent Name': agentNameOriginal,\n        Alias: aliasOriginal,\n        Email: email,\n      },\n    });\n    continue;\n  }\n\n  // 1. Buscar primero por email.\n  if (email) {\n    const data = await slackGet.call(\n      this,\n      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(email)}`\n    );\n\n    if (data.ok && data.user && !data.user.deleted) {\n      results.push({\n        json: {\n          row_number: json.row_number,\n          'Agent Name': agentNameOriginal,\n          Alias: aliasOriginal,\n          'Slack ID': data.user.id,\n          Email: data.user.profile?.email || email,\n          match_method: 'email',\n        },\n      });\n\n      if (DELAY_MS_BETWEEN_EMAIL_LOOKUPS > 0) {\n        await sleep(DELAY_MS_BETWEEN_EMAIL_LOOKUPS);\n      }\n\n      continue;\n    }\n\n    // Errores críticos: conviene devolverlos claro.\n    if (data.error === 'missing_scope') {\n      results.push({\n        json: {\n          _skip: true,\n          reason: 'missing_scope',\n          needed: data.needed || 'users:read.email',\n          provided: data.provided || '',\n          row_number: json.row_number,\n          'Agent Name': agentNameOriginal,\n          Alias: aliasOriginal,\n          Email: email,\n        },\n      });\n      continue;\n    }\n\n    if (data.error === 'invalid_auth' || data.error === 'not_authed') {\n      results.push({\n        json: {\n          _skip: true,\n          reason: data.error,\n          row_number: json.row_number,\n          'Agent Name': agentNameOriginal,\n          Alias: aliasOriginal,\n          Email: email,\n        },\n      });\n      continue;\n    }\n\n    // Si el email no existe en Slack, seguimos al fallback por nombre/alias.\n  }\n\n  // 2. Fallback por Agent Name o Alias usando users.list cacheado.\n  const matched = await findByNameOrAlias.call(this, agentName, alias);\n\n  if (matched) {\n    results.push({\n      json: {\n        row_number: json.row_number,\n        'Agent Name': agentNameOriginal,\n        Alias: aliasOriginal,\n        'Slack ID': matched.id,\n        Email: matched.profile?.email || email || '',\n        match_method: 'name_or_alias',\n      },\n    });\n    continue;\n  }\n\n  // Si no encontró Slack ID, igual devolvemos Agent Name + Email + Alias.\n  // Esto permite que Prepare Agent Data use el email y el alias aunque Slack no haya encontrado usuario.\n  results.push({\n    json: {\n      _skip: true,\n      reason: usersListError || 'no_match_found',\n      row_number: json.row_number,\n      'Agent Name': agentNameOriginal,\n      Alias: aliasOriginal,\n      Email: email,\n    },\n  });\n\n  if (DELAY_MS_BETWEEN_EMAIL_LOOKUPS > 0) {\n    await sleep(DELAY_MS_BETWEEN_EMAIL_LOOKUPS);\n  }\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        272
+      ],
+      "id": "51781c3f-f590-4ccd-9f36-0364acb775b8",
+      "name": "Active Agents ID+mail"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        464
+      ],
+      "id": "7cef71cd-7304-4da9-abfb-a343eef5fcd3",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const agentData = $input.item.json || {};\nconst currentSlackData = agentData;\n\nconst profile = agentData.user?.profile || null;\n\nconst photoUrl =\n  agentData.agentPhotoUrl ||\n  profile?.image_512 ||\n  profile?.image_192 ||\n  profile?.image_72 ||\n  '';\n\nconst {\n  agentName = '',\n  agentEmail = '',\n  initials = '??',\n  totalLeads = 0,\n  urgentCount = 0,\n  onTrack = 0,\n  leadsHTML = '',\n  pipelineHTML = '',\n  urgentBanner = '',\n  slackUrgentLeads: _rawUrgentLeads = [],\n  subject = 'Zillow Dashboard',\n  today = '',\n} = agentData;\n\nlet slackUrgentLeads = [];\n\nif (Array.isArray(_rawUrgentLeads)) {\n  slackUrgentLeads = _rawUrgentLeads;\n} else if (typeof _rawUrgentLeads === 'string' && _rawUrgentLeads.trim()) {\n  try {\n    slackUrgentLeads = JSON.parse(_rawUrgentLeads);\n  } catch (error) {\n    slackUrgentLeads = [];\n  }\n}\n\nconst slackUserId = agentData.slackUserId || agentData.user?.id || '';\n\nconst BRAND      = '#1E90FF';\nconst BRAND_DARK = '#1a1a2e';\nconst BRAND_MID  = '#0f3460';\n\nconst avatarInner = initials;\nconst avatarFontSize = '26px';\nconst avatarContent = photoUrl\n  ? '<img src=\"' + photoUrl + '\" width=\"72\" height=\"72\" style=\"display:block;width:72px;height:72px;border-radius:50%;object-fit:cover;\">'\n  : avatarInner;\n\n// ── FULL HTML EMAIL (table-based, Gmail-safe) ────────────────\nconst html = `<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/><title>Zillow Dashboard - ${agentName}</title><script>document.addEventListener('DOMContentLoaded',function(){if(window.location.href.indexOf('railway.app')>-1){var links=document.querySelectorAll('a');for(var i=0;i<links.length;i++){if(links[i].href&&links[i].href.indexOf('followupboss')>-1){links[i].target='_self';links[i].removeAttribute('onclick');}}var bar=document.createElement('div');bar.style.cssText='position:sticky;top:0;z-index:9999;background:#0e2d55;border-bottom:1px solid rgba(30,144,255,.3);padding:9px 16px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:11px;color:#8892a4;font-weight:500;';bar.textContent='FUB links open in this tab - use the browser Back button to return to your dashboard';document.body.insertBefore(bar,document.body.firstChild);}});</script></head><body style=\"margin:0;padding:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#f0f2f5\"><tr><td align=\"center\">\n<table width=\"480\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"max-width:480px;width:100%;\">\n\n<tr><td bgcolor=\"#06101c\" style=\"padding:12px 20px 14px;text-align:center;\"><img src=\"https://lh3.googleusercontent.com/d/YOUR_LOGO_IMAGE_ID\" alt=\"Skyline Realty Group\" height=\"120\" style=\"display:block;height:120px;width:auto;margin:0 auto 6px;\"><div style=\"color:#fff;font-size:16px;font-weight:700;letter-spacing:.3px;\">My Zillow Leads</div><div style=\"color:#8892a4;font-size:10px;margin-top:3px;\">${today}</div></td></tr>\n\n<tr><td bgcolor=\"#0e2d55\" style=\"padding:28px 20px 24px;text-align:center;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td align=\"center\" style=\"padding-bottom:14px;\"><table cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"72\" height=\"72\" bgcolor=\"${BRAND}\" style=\"width:72px;height:72px;border-radius:50%;text-align:center;vertical-align:middle;line-height:72px;font-size:${avatarFontSize};font-weight:700;color:#fff;border:3px solid rgba(255,255,255,0.25);overflow:hidden;\">${avatarContent}</td></tr></table></td></tr><tr><td align=\"center\" style=\"color:#fff;font-size:22px;font-weight:700;padding-bottom:5px;\">${agentName}</td></tr><tr><td align=\"center\" style=\"color:#8892a4;font-size:13px;padding-bottom:12px;\">Zillow Agent &middot; Riverside</td></tr><tr><td align=\"center\"><span style=\"display:inline-block;background:rgba(30,144,255,0.18);border:1px solid rgba(30,144,255,0.45);color:${BRAND};font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:20px;\">Skyline Realty Group</span></td></tr></table></td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:16px 16px 0;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"32%\" style=\"padding-right:6px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#ffffff\" style=\"border-radius:14px;padding:14px 10px;text-align:center;\"><div style=\"font-size:26px;font-weight:800;color:#1a1a2e;line-height:1;margin-bottom:4px;\">${totalLeads}</div><div style=\"font-size:10px;color:#8892a4;text-transform:uppercase;letter-spacing:.8px;font-weight:600;\">Total Leads</div></td></tr></table></td><td width=\"36%\" style=\"padding:0 3px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#ffffff\" style=\"border-radius:14px;padding:14px 10px;text-align:center;\"><div style=\"font-size:26px;font-weight:800;color:#dc2626;line-height:1;margin-bottom:4px;\">${urgentCount}</div><div style=\"font-size:10px;color:#8892a4;text-transform:uppercase;letter-spacing:.8px;font-weight:600;\">Urgent &#9888;</div></td></tr></table></td><td width=\"32%\" style=\"padding-left:6px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#ffffff\" style=\"border-radius:14px;padding:14px 10px;text-align:center;\"><div style=\"font-size:26px;font-weight:800;color:#10b981;line-height:1;margin-bottom:4px;\">${onTrack}</div><div style=\"font-size:10px;color:#8892a4;text-transform:uppercase;letter-spacing:.8px;font-weight:600;\">On Track &#10003;</div></td></tr></table></td></tr></table></td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:12px 16px 0;\">${urgentBanner}</td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:20px 16px 10px;font-size:12px;font-weight:700;color:#8892a4;text-transform:uppercase;letter-spacing:1.2px;border-bottom:1px solid #e5e7eb;\">Your Leads</td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:4px 16px 0;\">${leadsHTML}</td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:12px 16px 10px;font-size:12px;font-weight:700;color:#8892a4;text-transform:uppercase;letter-spacing:1.2px;border-bottom:1px solid #e5e7eb;\">Pipeline Breakdown</td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:0 16px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#ffffff\" style=\"border-radius:14px;padding:16px;\">${pipelineHTML}</td></tr></table></td></tr>\n\n<tr><td bgcolor=\"#f0f2f5\" style=\"padding:20px 16px 32px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td bgcolor=\"#ffffff\" style=\"border-radius:14px;padding:16px;text-align:center;\"><div style=\"font-size:11px;color:#9ca3af;font-weight:500;\">Powered by <span style=\"color:${BRAND};font-weight:700;\">CLAUDIO</span> &middot; Skyline Realty Group</div><div style=\"font-size:10px;color:#c4c9d4;margin-top:4px;\">Weekly report &middot; ${today} &middot; Data synced from FollowUpBoss via Zillow</div></td></tr></table></td></tr>\n\n</table>\n</td></tr></table>\n</body></html>`;\n\n// ── SLACK TEXT (mrkdwn) ──────────────────────────────────────\nconst slackLines = [\n  `:bar_chart: *Zillow Dashboard — Week of ${today}*`,\n  ``,\n  `Hey <@${slackUserId}>! Here's your weekly Zillow leads summary.`,\n  ``,\n  `*Total Leads:* ${totalLeads}  |  :red_circle: *Urgent:* ${urgentCount}  |  :large_green_circle: *On Track:* ${onTrack}`,\n  ``,\n];\n\nif (slackUrgentLeads.length > 0) {\n  slackLines.push(':rotating_light: *Leads needing immediate attention:*');\n  slackLines.push('');\n\n  for (const lead of slackUrgentLeads) {\n    slackLines.push(`• *${lead.name || ''}*  |  ${lead.stage || ''}  |  ${lead.lastComm || ''}  —  <${lead.link || '#'}|View in FUB>`);\n  }\n\n  slackLines.push('');\n  slackLines.push('_Make sure all leads have an active task and note in FUB to avoid reassignment._');\n} else {\n  slackLines.push(':white_check_mark: *All leads are within 7 days of contact. Great work!*');\n}\n\nslackLines.push('');\nslackLines.push('_Powered by CLAUDIO · Skyline Realty Group_');\n\nconst slackText = slackLines.join('\\n');\n\nreturn {\n  json: {\n    agentName,\n    agentEmail,\n    subject,\n    html,\n    slackText,\n    slackUserId,\n    agentPhotoUrl: photoUrl,\n    totalLeads,\n    urgentCount,\n    onTrack,\n  }\n};"
+      },
+      "id": "02bd462e-a5b9-459c-999f-24ed1a6124f4",
+      "name": "Generate HTML + Blocks1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const DRIVE_FOLDER_ID = 'YOUR_AGENT_PHOTOS_FOLDER_ID';\n\nconst data = $input.item.json || {};\n\nconst {\n  agentName = '',\n  agentEmail = '',\n  subject = 'Zillow Dashboard',\n  html = '',\n  slackText = '',\n  slackUserId = '',\n  agentPhotoUrl = '',\n  totalLeads = 0,\n  urgentCount = 0,\n  onTrack = 0,\n} = data;\n\nconst boundary = 'dashboardBoundary' + Date.now();\n\nconst safeAgentName = agentName\n  .replace(/[^a-zA-Z0-9 ]/g, '')\n  .trim() || 'Agent';\n\nconst fileName = `${safeAgentName} Dashboard.html`;\n\nconst meta = JSON.stringify({\n  name: fileName,\n  parents: [DRIVE_FOLDER_ID],\n  mimeType: 'text/html',\n});\n\nconst driveBody =\n  '--' + boundary +\n  '\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n' +\n  meta +\n  '\\r\\n--' + boundary +\n  '\\r\\nContent-Type: text/html\\r\\n\\r\\n' +\n  html +\n  '\\r\\n--' + boundary + '--';\n\nreturn {\n  json: {\n    ...data,\n    agentName,\n    agentEmail,\n    subject,\n    html,\n    slackText,\n    slackUserId,\n    agentPhotoUrl,\n    totalLeads,\n    urgentCount,\n    onTrack,\n    fileName,\n    _boundary: boundary,\n    _driveBody: driveBody,\n  },\n};"
+      },
+      "id": "d416c60f-99b5-4890-a962-bef191b1f559",
+      "name": "Prepare Drive Upload1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "=multipart/related; boundary={{ $json._boundary }}",
+        "body": "={{ $json._driveBody }}",
+        "options": {}
+      },
+      "id": "cc0babe1-c750-41ed-930e-cc029d4250b0",
+      "name": "Upload to Google Drive1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2256,
+        640
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const nl = String.fromCharCode(10);\nconst agentData = $('Prepare Drive Upload1').item.json;\nconst fileId = $json.id || null;\nlet updatedSlackText = agentData.slackText;\nif (fileId) {\n  const viewUrl = 'https://n8n-production-0ef6.up.railway.app/webhook/dashboard?id=' + fileId;\n  updatedSlackText = updatedSlackText + nl + nl + ':bar_chart: *<' + viewUrl + '|View Full Dashboard ->*';\n}\nreturn { json: { agentName: agentData.agentName, agentEmail: agentData.agentEmail, subject: agentData.subject, html: agentData.html, slackText: updatedSlackText, slackUserId: agentData.slackUserId } };"
+      },
+      "id": "d1057d58-0681-406e-bae0-042849775fca",
+      "name": "Build Drive URL1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.agentEmail }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "af15cd7e-1a3b-4551-956e-66825e134e81",
+      "name": "Send Email to Agent1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2032,
+        256
+      ],
+      "webhookId": "5a29d2ef-1bc4-44d6-8437-8f1df7e4bf01",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "slackUserId",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1568,
+        448
+      ],
+      "id": "76063b98-3a75-4d6e-9357-8b93ca3ebcfc",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const user = item.json.user || {};\n  const profile = user.profile || {};\n\n  return {\n    json: {\n      ...item.json,\n      slackUserId: user.id || '',\n      agentPhotoUrl:\n        profile.image_512 ||\n        profile.image_192 ||\n        profile.image_72 ||\n        profile.image_48 ||\n        ''\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        112
+      ],
+      "id": "c180c50b-2292-4756-acd0-2713208e84f0",
+      "name": "Normalize Slack Photo"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst REPORT_RECIPIENT = 'demo@example.com';\n\nfunction escapeHtml(value) {\n  return String(value ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nfunction todayLabel() {\n  return new Date().toLocaleDateString('en-US', {\n    month: 'long',\n    day: 'numeric',\n    year: 'numeric',\n  });\n}\n\nconst today = todayLabel();\n\nconst agents = items\n  .map(item => item.json || {})\n  .filter(row => row.agentName)\n  .map(row => ({\n    agentName: row.agentName || '',\n    agentEmail: row.agentEmail || '',\n    slackUserId: row.slackUserId || '',\n    totalLeads: Number(row.totalLeads || 0),\n    urgentCount: Number(row.urgentCount || 0),\n    onTrack: Number(row.onTrack || 0),\n    agentPhotoUrl: row.agentPhotoUrl || '',\n  }))\n  .sort((a, b) => {\n    if (b.urgentCount !== a.urgentCount) return b.urgentCount - a.urgentCount;\n    return b.totalLeads - a.totalLeads;\n  });\n\nconst totalAgents = agents.length;\nconst totalLeads = agents.reduce((sum, a) => sum + a.totalLeads, 0);\nconst totalUrgent = agents.reduce((sum, a) => sum + a.urgentCount, 0);\nconst totalOnTrack = agents.reduce((sum, a) => sum + a.onTrack, 0);\nconst urgentRate = totalLeads > 0 ? Math.round((totalUrgent / totalLeads) * 100) : 0;\n\nconst topUrgentAgents = agents\n  .filter(a => a.urgentCount > 0)\n  .slice(0, 5);\n\nlet rowsHTML = '';\n\nfor (const agent of agents) {\n  const urgentPct = agent.totalLeads > 0\n    ? Math.round((agent.urgentCount / agent.totalLeads) * 100)\n    : 0;\n\n  const statusColor =\n    agent.urgentCount >= 10 ? '#dc2626' :\n    agent.urgentCount >= 5 ? '#f59e0b' :\n    '#10b981';\n\n  const avatar = agent.agentPhotoUrl\n    ? `<img src=\"${escapeHtml(agent.agentPhotoUrl)}\" width=\"38\" height=\"38\" style=\"display:block;width:38px;height:38px;border-radius:50%;object-fit:cover;\">`\n    : `<div style=\"width:38px;height:38px;border-radius:50%;background:#1E90FF;color:#fff;font-size:13px;font-weight:700;line-height:38px;text-align:center;\">${escapeHtml(agent.agentName.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase())}</div>`;\n\n  rowsHTML += `\n    <tr>\n      <td style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;\">\n        ${avatar}\n      </td>\n      <td style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;\">\n        <div style=\"font-size:14px;font-weight:700;color:#111827;\">${escapeHtml(agent.agentName)}</div>\n        <div style=\"font-size:11px;color:#6b7280;margin-top:3px;\">${escapeHtml(agent.agentEmail)}</div>\n      </td>\n      <td align=\"center\" style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:700;color:#111827;\">\n        ${agent.totalLeads}\n      </td>\n      <td align=\"center\" style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:800;color:${statusColor};\">\n        ${agent.urgentCount}\n      </td>\n      <td align=\"center\" style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:700;color:#10b981;\">\n        ${agent.onTrack}\n      </td>\n      <td align=\"center\" style=\"padding:12px 10px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:700;color:${statusColor};\">\n        ${urgentPct}%\n      </td>\n    </tr>\n  `;\n}\n\nlet topUrgentHTML = '';\n\nif (topUrgentAgents.length) {\n  for (const agent of topUrgentAgents) {\n    topUrgentHTML += `\n      <tr>\n        <td style=\"padding:10px 0;border-bottom:1px solid #fee2e2;\">\n          <div style=\"font-size:13px;font-weight:700;color:#991b1b;\">${escapeHtml(agent.agentName)}</div>\n          <div style=\"font-size:11px;color:#ef4444;margin-top:2px;\">${agent.urgentCount} urgent of ${agent.totalLeads} total leads</div>\n        </td>\n      </tr>\n    `;\n  }\n} else {\n  topUrgentHTML = `\n    <tr>\n      <td style=\"padding:12px 0;font-size:13px;color:#065f46;font-weight:600;\">\n        No agents have urgent leads. Great job.\n      </td>\n    </tr>\n  `;\n}\n\nconst subject = `Agent Follow Up - Los Angeles County - ${today}`;\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <title>${escapeHtml(subject)}</title>\n</head>\n<body style=\"margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#111827;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#f3f4f6\">\n    <tr>\n      <td align=\"center\" style=\"padding:24px 12px;\">\n        <table width=\"720\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"max-width:720px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);\">\n\n          <tr>\n            <td bgcolor=\"#06101c\" style=\"padding:26px 28px;text-align:left;\">\n              <div style=\"font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#1E90FF;font-weight:800;\">Skyline Realty Group</div>\n              <div style=\"font-size:26px;line-height:1.25;color:#ffffff;font-weight:800;margin-top:8px;\">Agent Follow Up - Los Angeles</div>\n              <div style=\"font-size:13px;color:#9ca3af;margin-top:6px;\">${escapeHtml(today)}</div>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:22px 24px 8px;\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n                <tr>\n                  <td width=\"25%\" style=\"padding:0 6px 12px 0;\">\n                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n                      <tr><td bgcolor=\"#f9fafb\" style=\"border-radius:14px;padding:16px;text-align:center;border:1px solid #e5e7eb;\">\n                        <div style=\"font-size:26px;font-weight:900;color:#111827;\">${totalAgents}</div>\n                        <div style=\"font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:4px;\">Agents</div>\n                      </td></tr>\n                    </table>\n                  </td>\n                  <td width=\"25%\" style=\"padding:0 6px 12px;\">\n                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n                      <tr><td bgcolor=\"#eff6ff\" style=\"border-radius:14px;padding:16px;text-align:center;border:1px solid #bfdbfe;\">\n                        <div style=\"font-size:26px;font-weight:900;color:#1d4ed8;\">${totalLeads}</div>\n                        <div style=\"font-size:10px;color:#1e40af;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:4px;\">Total Leads</div>\n                      </td></tr>\n                    </table>\n                  </td>\n                  <td width=\"25%\" style=\"padding:0 6px 12px;\">\n                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n                      <tr><td bgcolor=\"#fef2f2\" style=\"border-radius:14px;padding:16px;text-align:center;border:1px solid #fecaca;\">\n                        <div style=\"font-size:26px;font-weight:900;color:#dc2626;\">${totalUrgent}</div>\n                        <div style=\"font-size:10px;color:#991b1b;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:4px;\">Urgent</div>\n                      </td></tr>\n                    </table>\n                  </td>\n                  <td width=\"25%\" style=\"padding:0 0 12px 6px;\">\n                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n                      <tr><td bgcolor=\"#ecfdf5\" style=\"border-radius:14px;padding:16px;text-align:center;border:1px solid #a7f3d0;\">\n                        <div style=\"font-size:26px;font-weight:900;color:#059669;\">${urgentRate}%</div>\n                        <div style=\"font-size:10px;color:#065f46;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:4px;\">Urgent Rate</div>\n                      </td></tr>\n                    </table>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:8px 24px 4px;\">\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#fff7ed\" style=\"border:1px solid #fed7aa;border-left:5px solid #f97316;border-radius:14px;\">\n                <tr>\n                  <td style=\"padding:16px 18px;\">\n                    <div style=\"font-size:14px;font-weight:800;color:#9a3412;\">Highest urgent follow-up load</div>\n                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:8px;\">\n                      ${topUrgentHTML}\n                    </table>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:22px 24px 10px;\">\n              <div style=\"font-size:15px;font-weight:800;color:#111827;margin-bottom:10px;\">Agent Summary</div>\n              <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;\">\n                <tr bgcolor=\"#f9fafb\">\n                  <td style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">Photo</td>\n                  <td style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">Agent</td>\n                  <td align=\"center\" style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">Total</td>\n                  <td align=\"center\" style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">Urgent</td>\n                  <td align=\"center\" style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">On Track</td>\n                  <td align=\"center\" style=\"padding:10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;font-weight:800;text-transform:uppercase;\">Urgent %</td>\n                </tr>\n                ${rowsHTML}\n              </table>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:20px 24px 26px;\">\n              <div style=\"font-size:11px;color:#9ca3af;text-align:center;\">\n                Automated summary generated from FollowUpBoss / Zillow dashboard workflow.\n              </div>\n            </td>\n          </tr>\n\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [\n  {\n    json: {\n      reportRecipient: REPORT_RECIPIENT,\n      subject,\n      html,\n      totalAgents,\n      totalLeads,\n      totalUrgent,\n      totalOnTrack,\n      urgentRate,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        448
+      ],
+      "id": "ed28747f-6a13-44a1-8556-1cc16b9f5899",
+      "name": "Build Admin Summary Report"
+    },
+    {
+      "parameters": {
+        "sendTo": "=manager@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        208
+      ],
+      "id": "8ff4a3eb-6060-421f-8106-33de8f8161f1",
+      "name": "Send a message",
+      "webhookId": "fa09f1a3-2084-46a5-bfa4-ea8883dae742",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9680d0e1-915f-4433-8101-0ce093c86a90",
+              "leftValue": "={{ $('Extract Agents from list').item.json.Office }}",
+              "rightValue": "Riverside",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "71a18be3-b3e3-4ff5-8e03-bf9b7d8787e7",
+              "leftValue": "={{ $('Extract Agents from list').item.json.Office }}",
+              "rightValue": "Orange County",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "7a27ee78-45e7-440f-997b-fa6278f796f1",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "Offboarded",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "13dd10d7-8a3c-4331-8807-c6eb051902e3",
+              "leftValue": "={{ $json['Slack ID'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "0a5a271c-0d67-421d-ae0d-d931cc923807",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "Offboarded",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fefd691f-3856-468c-bd59-66222661476b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "=demo@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2368,
+        448
+      ],
+      "id": "1b74f9a0-c73a-4960-ba0c-6395dd28846d",
+      "name": "TEST",
+      "webhookId": "1b980ae4-d976-4bc4-aae2-68ff1ce77a16",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oLmTCPiZIIJppNoZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_LEADS_SHEET_ID/values/ALL%20AGENTS",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "1cf2bede-6bfc-4c47-800d-151ffeed3b63",
+      "name": "Get Leads LA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        688
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -480,
+        480
+      ],
+      "id": "1c7ec5f7-6f91-4173-ace0-e3906b8f1f29",
+      "name": "Wait",
+      "webhookId": "82d93819-92d3-4f11-899e-56d2f9b58cb8"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        272
+      ],
+      "id": "e74735d9-c823-4ec2-bb6a-11ab93f9e77c",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "={{ $json.slackUserId }}",
+          "mode": "id"
+        },
+        "text": "={{ $json.slackText }}",
+        "otherOptions": {
+          "unfurl_links": false,
+          "unfurl_media": true
+        }
+      },
+      "id": "dd18663e-db25-4091-8da3-eb0868c77920",
+      "name": "Send Slack DM",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        640
+      ],
+      "webhookId": "7f36f583-0b50-498e-8312-a3c840f8b567",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "LSHhb7jtnQWXMuZb",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        656
+      ],
+      "id": "5af13f9f-2aa8-4475-8e2b-18482f80f3bd",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nfunction clean(value) {\n  return String(value ?? '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction decodeHtml(value) {\n  return clean(String(value ?? '')\n    .replace(/&amp;/g, '&')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&#8599;/g, '↗')\n    .replace(/&#9679;/g, '●')\n  );\n}\n\nfunction stripTags(value) {\n  return clean(String(value ?? '').replace(/<[^>]*>/g, ''));\n}\n\nfunction extractFirst(text, regex) {\n  const match = String(text || '').match(regex);\n  return match ? match[1] : '';\n}\n\nfunction getDaysFromLastCommunication(value) {\n  const text = clean(value);\n\n  if (!text || /^today$/i.test(text)) {\n    return 0;\n  }\n\n  const dayMatch = text.match(/(\\d+)\\s*day/i);\n  if (dayMatch) {\n    return Number(dayMatch[1]);\n  }\n\n  const numberMatch = text.match(/^(\\d+)/);\n  return numberMatch ? Number(numberMatch[1]) : 0;\n}\n\nfor (const item of items) {\n  const agentData = item.json || {};\n\n  const html = String(agentData.leadsHTML || '');\n  if (!html) continue;\n\n  const reportDate = agentData.today || new Date().toISOString().slice(0, 10);\n\n  const assignedAgent =\n    agentData.agentName ||\n    agentData.sourceLeadAgentName ||\n    '';\n\n  const matchedAgentName = agentData.matchedAgentName || '';\n  const agentEmail = agentData.agentEmail || '';\n  const slackUserId = agentData.slackUserId || '';\n  const reportedUrgentCount = Number(agentData.urgentCount || 0);\n\n  /*\n    Cada lead card del HTML inicia con:\n    <table ... style=\"margin-bottom:10px;\"><tr><td bgcolor=\"...\"\n    \n    Los urgentes tienen:\n    border-left:4px solid #dc2626\n  */\n  const cards = html\n    .split(/(?=<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-bottom:10px;\"><tr><td bgcolor=\")/g)\n    .filter(card => card && card.trim());\n\n  let urgentIndexForAgent = 0;\n\n  for (const card of cards) {\n    const isUrgent = card.includes('border-left:4px solid #dc2626');\n\n    if (!isUrgent) continue;\n\n    const fubUrl = decodeHtml(\n      extractFirst(card, /<a href=\"([^\"]+)\"/)\n    );\n\n    const leadId =\n      extractFirst(fubUrl, /\\/people\\/view\\/(\\d+)/) ||\n      extractFirst(card, /\\/people\\/view\\/(\\d+)/);\n\n    const leadName = decodeHtml(stripTags(\n      extractFirst(\n        card,\n        /font-size:15px;font-weight:700;color:#1a1a2e;\">([\\s\\S]*?)<\\/td>/\n      )\n    ));\n\n    const spans = [...card.matchAll(/<span\\b[^>]*>([\\s\\S]*?)<\\/span>/g)]\n      .map(match => decodeHtml(stripTags(match[1])));\n\n    const stage = spans[0] || '';\n    const leadSource = spans[1] || '';\n\n    const timeWithoutContact = decodeHtml(stripTags(\n      extractFirst(card, /&#9679;\\s*([\\s\\S]*?)<\\/td>/)\n    ));\n\n    const daysWithoutContact = getDaysFromLastCommunication(timeWithoutContact);\n\n    urgentIndexForAgent++;\n\n    output.push({\n      json: {\n        reportDate,\n\n        leadId,\n        leadName,\n\n        assignedAgent,\n        matchedAgentName,\n        agentEmail,\n        slackUserId,\n\n        timeWithoutContact,\n        daysWithoutContact,\n\n        stage,\n        leadSource,\n        fubUrl,\n\n        isUrgent: true,\n        urgentRule: 'Last Communication >= 7 days',\n        extractionSource: 'Prepare Agent Data - Riverside > leadsHTML',\n\n        agentUrgentIndex: urgentIndexForAgent,\n        agentUrgentCountReported: reportedUrgentCount,\n\n        snapshotKey: `${reportDate}_${leadId}`,\n      },\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        992
+      ],
+      "id": "7123ee19-7a88-4bad-b324-ae22a894e75f",
+      "name": "Urgent Leads Report"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const row = $json;\n\nconst processedAt = new Date().toISOString();\nconst office = 'Riverside';\n\nfunction parseReportDate(value) {\n  const parsed = new Date(value);\n\n  if (!Number.isNaN(parsed.getTime())) {\n    return parsed;\n  }\n\n  return new Date();\n}\n\nfunction formatDateISO(date) {\n  return date.toISOString().slice(0, 10);\n}\n\nfunction getWeekKey(reportDateValue) {\n  const date = parseReportDate(reportDateValue);\n\n  // Semana lunes-domingo\n  const day = date.getDay(); // Sunday = 0, Monday = 1\n  const diffToMonday = day === 0 ? -6 : 1 - day;\n\n  const weekStart = new Date(date);\n  weekStart.setDate(date.getDate() + diffToMonday);\n\n  const weekEnd = new Date(weekStart);\n  weekEnd.setDate(weekStart.getDate() + 6);\n\n  const weekStartISO = formatDateISO(weekStart);\n  const weekEndISO = formatDateISO(weekEnd);\n\n  return `${weekStartISO}_to_${weekEndISO}`;\n}\n\nconst reportDate = row.reportDate || '';\nconst weekKey = getWeekKey(reportDate);\n\nreturn {\n  json: {\n    office,\n\n    reportDate,\n    weekKey,\n\n    leadId: row.leadId || '',\n    leadName: row.leadName || '',\n\n    assignedAgent: row.assignedAgent || '',\n    matchedAgentName: row.matchedAgentName || '',\n    agentEmail: row.agentEmail || '',\n    slackUserId: row.slackUserId || '',\n\n    timeWithoutContact: row.timeWithoutContact || '',\n    daysWithoutContact: Number(row.daysWithoutContact || 0),\n\n    stage: row.stage || '',\n    leadSource: row.leadSource || '',\n    fubUrl: row.fubUrl || '',\n\n    isUrgent: row.isUrgent === true,\n    urgentRule: row.urgentRule || 'Last Communication >= 7 days',\n\n    snapshotKey: `${office}_${weekKey}_${row.leadId || ''}`,\n\n    processedAt,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        992
+      ],
+      "id": "72934861-8589-431c-9440-d60755502d66",
+      "name": "Prepare Report Snapshot"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_REPORTS_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 51104140,
+          "mode": "list",
+          "cachedResultName": "Historic",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_REPORTS_SHEET_ID_ALT/edit#gid=51104140"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Report Date": "={{ $json.reportDate }}",
+            "Week": "={{ $json.weekKey }}",
+            "ID": "={{ $json.leadId }}",
+            "Lead": "={{ $json.leadName }}",
+            "Agent": "={{ $json.assignedAgent }}",
+            "Time Without Contact": "={{ $json.timeWithoutContact }}",
+            "Days with no Contact": "={{ $json.daysWithoutContact }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Report Date",
+              "displayName": "Report Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Week",
+              "displayName": "Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead",
+              "displayName": "Lead",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Agent",
+              "displayName": "Agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Time Without Contact",
+              "displayName": "Time Without Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Days with no Contact",
+              "displayName": "Days with no Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        1184
+      ],
+      "id": "c4931b95-b778-4737-bd50-52567d2f80a7",
+      "name": "Data History",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_REPORTS_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 185403729,
+          "mode": "list",
+          "cachedResultName": "Last Report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_REPORTS_SHEET_ID/edit#gid=185403729"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Report Date": "={{ $json.reportDate }}",
+            "Week": "={{ $json.weekKey }}",
+            "ID": "={{ $json.leadId }}",
+            "Lead": "={{ $json.leadName }}",
+            "Agent": "={{ $json.assignedAgent }}",
+            "Time Without Contact": "={{ $json.timeWithoutContact }}",
+            "Days with no Contact": "={{ $json.daysWithoutContact }}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "Report Date",
+              "displayName": "Report Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Week",
+              "displayName": "Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead",
+              "displayName": "Lead",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Agent",
+              "displayName": "Agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Time Without Contact",
+              "displayName": "Time Without Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Days with no Contact",
+              "displayName": "Days with no Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1808,
+        992
+      ],
+      "id": "6b569f66-cebb-469c-b839-8028e0265570",
+      "name": "Last Report",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_REPORTS_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 185403729,
+          "mode": "list",
+          "cachedResultName": "Last Report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_REPORTS_SHEET_ID/edit#gid=185403729"
+        },
+        "clear": "specificRange",
+        "range": "A2:J2000"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1808,
+        816
+      ],
+      "id": "581bd13b-f90a-4431-87ae-98fe9cf1bf3c",
+      "name": "Clear sheet",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "9gL18S1LaCrUhn5V",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        1184
+      ],
+      "id": "02dc5d94-78c6-4c81-9c93-3719c4f69fa5",
+      "name": "Wait1",
+      "webhookId": "ce03589f-1350-4661-a0bc-3560ed0df371"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get Agent Photo1": {
+      "main": [
+        [
+          {
+            "node": "Normalize Slack Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Agent Data - Riverside": {
+      "main": [
+        [
+          {
+            "node": "Get Agent Photo1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Urgent Leads Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Email or Name": {
+      "main": [
+        [
+          {
+            "node": "Active Agents ID+mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Agents from list": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Sheet Data1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Active Agents ID+mail": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare Agent Data - Riverside",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HTML + Blocks1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Drive Upload1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email to Agent1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Admin Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Drive Upload1": {
+      "main": [
+        [
+          {
+            "node": "Upload to Google Drive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Google Drive1": {
+      "main": [
+        [
+          {
+            "node": "Build Drive URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML + Blocks1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Slack Photo": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Admin Summary Report": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TEST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Route: Email or Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Leads LA": {
+      "main": [
+        [
+          {
+            "node": "Transform Sheet Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Extract Agents from list",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Leads LA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack DM": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Drive URL1": {
+      "main": [
+        [
+          {
+            "node": "Send Slack DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgent Leads Report": {
+      "main": [
+        [
+          {
+            "node": "Prepare Report Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Report Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Last Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Data History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "72b892f8-4168-4d68-a769-f4c7e5151865",
+  "meta": {},
+  "id": "demo-agent-roster-report",
+  "tags": []
+}
